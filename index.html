@@ -1,0 +1,2668 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Corner Cup</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=DM+Sans:wght@400;500;600&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+
+<div id="customer">
+<header class="top">
+  <div class="wrap">
+    <div class="topline">
+      <p class="status" id="status"><span class="dot"></span><span id="status-text">Open until 11 pm</span></p>
+      <span class="slinks"><button type="button" class="linkbtn" id="lang-btn" data-action="lang">हिन्दी</button><a class="stafflink" id="stafflink" href="#staff" hidden>Staff screen</a></span>
+    </div>
+    <h1>Corner Cup</h1>
+    <p class="sub">Coffee, chai and bites. Order from your phone, then collect at the counter or have it brought to your table.</p>
+    <div class="actions">
+      <button type="button" class="ghost" data-action="book">Book a table</button>
+      <button type="button" class="ghost" data-action="mine" id="mine-btn" hidden>My orders<span class="badge" id="mine-badge" hidden>0</span></button>
+    </div>
+    <div class="welcome" id="welcome" hidden></div>
+    <div class="tablebar" id="tablebar" hidden></div>
+    <div class="stampcard" aria-label="Stamp card">
+      <div class="stamp-row" id="stamp-row" aria-hidden="true"></div>
+      <p class="stamp-text" id="stamp-text"></p>
+    </div>
+    <div class="track" id="track" hidden>
+      <button type="button" class="track-main" data-action="track" id="track-main"></button>
+      <button type="button" class="track-x" data-action="dismiss" id="track-x" hidden>Dismiss</button>
+    </div>
+    <div class="track" id="bk-track" hidden>
+      <button type="button" class="track-main" data-action="bktrack" id="bk-track-main"></button>
+      <button type="button" class="track-x" data-action="bkdismiss" id="bk-track-x" hidden>Dismiss</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap tools">
+  <label class="sr" for="q">Search the menu</label>
+  <input class="search" id="q" type="search" placeholder="Search coffee, chai, sandwiches" autocomplete="off">
+  <div class="toggles">
+    <button type="button" class="chip" data-action="tog" data-t="veg" aria-pressed="false">Veg only</button>
+    <button type="button" class="chip" data-action="tog" data-t="fav" aria-pressed="false">Favourites</button>
+  </div>
+</div>
+
+<nav class="rail" aria-label="Menu sections">
+  <div class="wrap chips" id="chips"></div>
+</nav>
+
+<main class="wrap" id="menu"></main>
+<footer class="wrap foot"><p>Prices in ₹. 5% GST is added at checkout. Pay at the counter.</p></footer>
+
+<div class="cartbar" id="cartbar" hidden>
+  <button type="button" class="bar" data-action="open" id="bar">
+    <span class="count" id="bar-count">0 items</span>
+    <span>View order</span>
+    <span class="amt" id="bar-amt">₹0</span>
+  </button>
+</div>
+
+<div class="scrim" id="scrim" hidden>
+  <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" tabindex="-1">
+    <div id="view-cart">
+      <div class="sheet-head">
+        <h2 id="sheet-title">Your order</h2>
+        <button type="button" class="close" data-action="close">Close</button>
+      </div>
+      <ul id="lines"></ul>
+      <p class="empty" id="empty" hidden>Nothing here yet. Add something from the menu.</p>
+      <form id="form" novalidate>
+        <fieldset>
+          <legend>How would you like it?</legend>
+          <div class="seg">
+            <label><input type="radio" name="type" value="pickup" checked><span>Pickup</span></label>
+            <label><input type="radio" name="type" value="dinein"><span>Dine in</span></label>
+          </div>
+        </fieldset>
+        <div class="field">
+          <label class="fl" for="f-name">Your name</label>
+          <input id="f-name" name="name" type="text" autocomplete="given-name" placeholder="Asha" aria-describedby="err-name">
+          <p class="err" id="err-name" hidden>Enter a name so we can call out your order.</p>
+        </div>
+        <div class="field">
+          <label class="fl" for="f-phone">Mobile number</label>
+          <div class="phone">
+            <span class="cc" aria-hidden="true">+91</span>
+            <input id="f-phone" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="98765 43210" aria-describedby="err-phone phone-help">
+          </div>
+          <p class="err" id="err-phone" hidden></p>
+          <p class="hint" id="phone-help">Needed for your order and stamp card. No OTP.</p>
+        </div>
+        <label class="check"><input type="checkbox" id="f-optin" checked><span>Send me offers and reminders on WhatsApp. I can say STOP any time.</span></label>
+        <div class="field" id="table-field" hidden>
+          <label class="fl" for="f-table">Table number</label>
+          <input id="f-table" name="table" type="text" inputmode="numeric" placeholder="7" aria-describedby="err-table">
+          <p class="err" id="err-table" hidden>Enter the table number printed on your table.</p>
+        </div>
+        <div class="field">
+          <label class="fl" for="f-note">Note for the kitchen (optional)</label>
+          <textarea id="f-note" name="note" placeholder="Extra hot, no sugar in the chai"></textarea>
+        </div>
+        <div class="field">
+          <label class="fl" for="f-promo">Promo code</label>
+          <div class="row">
+            <input id="f-promo" type="text" autocapitalize="characters" autocomplete="off" placeholder="FIRSTCUP" aria-describedby="promo-msg">
+            <button type="button" class="apply" data-action="applypromo">Apply</button>
+          </div>
+          <p class="hint" id="promo-msg">Try FIRSTCUP or CHAI20.</p>
+        </div>
+        <div class="hints" id="hints"></div>
+        <div class="totals" id="totals"></div>
+        <p class="err" id="err-gone" role="alert" hidden></p>
+        <button type="submit" class="place" id="place">Place order</button>
+        <p class="fine">You pay at the counter when you collect your order. Your receipt appears right after you place it.</p>
+      </form>
+    </div>
+
+    <div id="view-done" hidden>
+      <div class="sheet-head">
+        <p class="eyebrow">Order placed</p>
+        <button type="button" class="close" data-action="close">Close</button>
+      </div>
+      <p class="token" id="done-token"></p>
+      <p class="eta" id="done-eta"></p>
+      <p class="meta" id="done-meta"></p>
+      <ol class="steps" id="done-steps" aria-label="Order status"></ol>
+      <p class="sr" id="done-live" aria-live="polite"></p>
+      <div id="done-receipt"></div>
+      <div id="done-rate"></div>
+      <p class="stampmsg" id="done-stamp"></p>
+      <p class="fine" style="margin-top:14px" id="done-note"></p>
+      <div class="done-actions">
+        <button type="button" class="place" data-action="close">Back to menu</button>
+        <button type="button" class="place alt" data-action="dlrcpt" data-dl hidden>Download receipt</button>
+        <p class="fine" id="done-dl" role="status"></p>
+        <button type="button" class="place alt" data-action="mine">See all my orders</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="scrim" id="scrim2" hidden>
+  <section class="sheet" id="sheet2" role="dialog" aria-modal="true" aria-labelledby="opt-title" tabindex="-1">
+    <div class="sheet-head">
+      <h2 id="opt-title"></h2>
+      <button type="button" class="close" data-action="closeopts">Close</button>
+    </div>
+    <p class="fine" id="opt-desc"></p>
+    <div class="optform" id="opts-body"></div>
+    <button type="button" class="place" id="opts-add">Add to order</button>
+  </section>
+</div>
+
+<div class="scrim" id="scrim3" hidden>
+  <section class="sheet" id="sheet3" role="dialog" aria-modal="true" aria-labelledby="bk-title" tabindex="-1">
+    <div id="bk-form-view">
+      <div class="sheet-head">
+        <h2 id="bk-title">Book a table</h2>
+        <button type="button" class="close" data-action="closebook">Close</button>
+      </div>
+      <p class="fine">Tell us when you are coming. The cafe confirms your table here.</p>
+      <form id="bk-form" novalidate>
+        <div class="pair">
+          <div class="field">
+            <label class="fl" for="b-name">Name</label>
+            <input id="b-name" type="text" autocomplete="given-name" placeholder="Asha" aria-describedby="err-bname">
+            <p class="err" id="err-bname" hidden>Enter a name for the booking.</p>
+          </div>
+          <div class="field">
+            <label class="fl" for="b-party">Guests</label>
+            <select id="b-party"></select>
+          </div>
+        </div>
+        <div class="pair">
+          <div class="field">
+            <label class="fl" for="b-date">Date</label>
+            <input id="b-date" type="date" aria-describedby="err-bdate">
+            <p class="err" id="err-bdate" hidden>Choose a date.</p>
+          </div>
+          <div class="field">
+            <label class="fl" for="b-time">Time</label>
+            <select id="b-time" aria-describedby="err-btime"></select>
+            <p class="err" id="err-btime" hidden>Choose a time.</p>
+          </div>
+        </div>
+        <div class="field">
+          <label class="fl" for="b-phone">Mobile number</label>
+          <div class="phone">
+            <span class="cc" aria-hidden="true">+91</span>
+            <input id="b-phone" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="98765 43210" aria-describedby="err-bphone">
+          </div>
+          <p class="err" id="err-bphone" hidden></p>
+        </div>
+        <div class="field">
+          <label class="fl" for="b-note">Anything we should know? (optional)</label>
+          <textarea id="b-note" placeholder="Birthday, high chair, window seat"></textarea>
+        </div>
+        <button type="submit" class="place" id="bk-submit">Request table</button>
+      </form>
+    </div>
+    <div id="bk-done-view" hidden>
+      <div class="sheet-head">
+        <p class="eyebrow">Table request</p>
+        <button type="button" class="close" data-action="closebook">Close</button>
+      </div>
+      <p class="token sm" id="bk-state"></p>
+      <p class="eta" id="bk-when"></p>
+      <p class="meta" id="bk-who"></p>
+      <p class="sr" id="bk-live" aria-live="polite"></p>
+      <p class="stampmsg" id="bk-msg"></p>
+      <div class="done-actions"><button type="button" class="place" data-action="closebook">Done</button></div>
+    </div>
+  </section>
+</div>
+
+<div class="scrim" id="scrim4" hidden>
+  <section class="sheet" id="sheet4" role="dialog" aria-modal="true" aria-labelledby="mine-title" tabindex="-1">
+    <div id="mine-list-view">
+      <div class="sheet-head">
+        <h2 id="mine-title">My orders</h2>
+        <button type="button" class="close" data-action="closemine">Close</button>
+      </div>
+      <div id="mine-body"></div>
+    </div>
+    <div id="mine-rcpt-view" hidden>
+      <div class="sheet-head">
+        <button type="button" class="close" data-action="minelist">Back</button>
+        <button type="button" class="close" data-action="closemine">Close</button>
+      </div>
+      <p class="token sm" id="mr-token"></p>
+      <p class="eta" id="mr-status"></p>
+      <ol class="steps" id="mr-steps" aria-label="Order status"></ol>
+      <div id="mr-receipt"></div>
+      <div id="mr-rate"></div>
+      <div class="done-actions">
+        <button type="button" class="place" data-action="reorder">Order again</button>
+        <button type="button" class="place alt" data-action="dlmine" data-dl hidden>Download receipt</button>
+        <p class="fine" id="mr-dl" role="status"></p>
+      </div>
+    </div>
+  </section>
+</div>
+</div>
+
+<div id="staff" hidden>
+  <header class="top staff-top">
+    <div class="wrap swrap">
+      <div class="topline">
+        <p class="status"><span class="dot"></span>Staff screen</p>
+        <span class="slinks">
+          <button type="button" class="linkbtn" id="s-sound" data-action="ssound" hidden>Sound: on</button>
+          <button type="button" class="linkbtn" id="s-pass" data-action="spass" hidden>Change password</button>
+          <button type="button" class="linkbtn" id="s-lock" data-action="slock" hidden>Lock</button>
+          <a class="stafflink" id="homelink" href="./">Customer page</a>
+        </span>
+      </div>
+      <h1 class="sh">Corner Cup counter</h1>
+    </div>
+  </header>
+  <main class="wrap swrap">
+    <div id="staff-gate"></div>
+    <div id="staff-body" hidden></div>
+  </main>
+</div>
+
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script>
+window.FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCY6VyUVsWEB08dmEGrZyVoCwMrYNGEa3w",
+  authDomain: "cornercup-ac95b.firebaseapp.com",
+  projectId: "cornercup-ac95b",
+  storageBucket: "cornercup-ac95b.firebasestorage.app",
+  messagingSenderId: "87722056745",
+  appId: "1:87722056745:web:7b541b5d5e217b7953d038"
+};
+</script>
+<script>window.CC_MODE = 'customer';</script>
+<script>
+(function () {
+  var MODE = window.CC_MODE === 'staff' ? 'staff' : 'customer';
+  // Sample menu. Edit names, descriptions and prices here.
+  // kind: coffee and drink count for the free coffee and the combo deal, food pairs with a drink.
+  // custom: 'milk' = size, milk and sugar choices. 'plain' = size and sugar only.
+  var MENU = [
+    { cat: 'Coffee', kind: 'coffee', items: [
+      { id: 'filter', name: 'Filter Coffee', desc: 'South Indian decoction with frothed milk', price: 90, veg: true, custom: 'milk' },
+      { id: 'cappu', name: 'Cappuccino', desc: 'Double shot, steamed milk, thick foam', price: 160, veg: true, custom: 'milk' },
+      { id: 'flat', name: 'Flat White', desc: 'Ristretto with silky microfoam', price: 170, veg: true, custom: 'milk' },
+      { id: 'cold', name: 'Cold Coffee', desc: 'Blended with milk and ice, chocolate drizzle', price: 180, veg: true, custom: 'milk' },
+      { id: 'amer', name: 'Iced Americano', desc: 'Two shots over ice, served black', price: 150, veg: true, custom: 'plain' }
+    ]},
+    { cat: 'Chai and More', kind: 'drink', items: [
+      { id: 'masala', name: 'Masala Chai', desc: 'Cardamom, ginger and crushed tea leaves', price: 70, veg: true, custom: 'milk' },
+      { id: 'lemon', name: 'Ginger Lemon Tea', desc: 'Light, sharp and warming', price: 80, veg: true, custom: 'plain' },
+      { id: 'choc', name: 'Hot Chocolate', desc: 'Dark chocolate melted into steamed milk', price: 190, veg: true, custom: 'milk' },
+      { id: 'matcha', name: 'Matcha Latte', desc: 'Ceremonial grade matcha with your choice of milk', price: 220, veg: true, custom: 'milk' }
+    ]},
+    { cat: 'Bites', kind: 'food', items: [
+      { id: 'puff', name: 'Veg Puff', desc: 'Flaky pastry, spiced potato and peas', price: 60, veg: true },
+      { id: 'maggi', name: 'Masala Maggi', desc: 'Onion, tomato, green chilli, a little butter', price: 130, veg: true },
+      { id: 'paneer', name: 'Paneer Tikka Sandwich', desc: 'Grilled on sourdough with mint chutney', price: 220, veg: true },
+      { id: 'bhurji', name: 'Egg Bhurji Toast', desc: 'Soft scrambled eggs with onion and coriander', price: 150, veg: false },
+      { id: 'club', name: 'Chicken Club Sandwich', desc: 'Three layers, grilled chicken, lettuce, cheese', price: 260, veg: false }
+    ]},
+    { cat: 'Sweet', kind: 'food', items: [
+      { id: 'brownie', name: 'Chocolate Brownie', desc: 'Eggless, fudgy, served warm', price: 140, veg: true },
+      { id: 'muffin', name: 'Blueberry Muffin', desc: 'Baked fresh each morning', price: 120, veg: true },
+      { id: 'cake', name: 'Banana Walnut Cake', desc: 'One thick slice, lightly toasted', price: 130, veg: true }
+    ]}
+  ];
+  var SIZES = [{ id: 'reg', label: 'Regular', add: 0 }, { id: 'lg', label: 'Large', add: 40 }];
+  var MILKS = [{ id: 'dairy', label: 'Dairy', add: 0 }, { id: 'oat', label: 'Oat', add: 30 }, { id: 'almond', label: 'Almond', add: 40 }];
+  var SUGARS = [{ id: 'normal', label: 'Normal sugar', add: 0 }, { id: 'less', label: 'Less sugar', add: 0 }, { id: 'none', label: 'No sugar', add: 0 }];
+  // Built-in codes. The cafe adds more from the Offers tab on the staff screen.
+  var CODES = {
+    FIRSTCUP: { label: '15% off your first order, up to ₹60', min: 0, first: true, calc: function (base) { return Math.min(Math.round(base * 0.15), 60); } },
+    CHAI20: { label: '₹20 off orders above ₹200', min: 200, first: false, calc: function () { return 20; } }
+  };
+  var COMBO = 30;
+  var GST = 0.05;
+  var STAMPS_FULL = 6;
+  var DUE_DAYS = 3;
+  var DAY = 86400000;
+  var DEFAULT_LINK = location.origin + location.pathname.replace(/[^\/]*$/, '');
+  var PAY = { counter: 'Pay at counter' };
+  var STAGE_NAMES = ['Received', 'Preparing', 'Ready', 'Completed'];
+  var FIRST_SLOT = 8 * 60, LAST_SLOT = 21 * 60 + 30;
+  var STALE_MS = 12 * 3600 * 1000;
+
+  var byId = {};
+  MENU.forEach(function (c) { c.items.forEach(function (i) { i.kind = c.kind; byId[i.id] = i; }); });
+
+  function $(id) { return document.getElementById(id); }
+  function find(list, id) { for (var k = 0; k < list.length; k++) if (list[k].id === id) return list[k]; return null; }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function fmt(n) {
+    n = Math.round(n * 100) / 100;
+    var d = n % 1 ? 2 : 0;
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: d, maximumFractionDigits: d }).format(n);
+  }
+  function load(key, def) {
+    try { var s = localStorage.getItem(key); return s ? JSON.parse(s) : def; } catch (e) { return def; }
+  }
+  function save(key, v) {
+    try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) {}
+  }
+  function newId(p) { return p + Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36); }
+  function t12(t) {
+    var p = String(t).split(':'), h = +p[0], ap = h >= 12 ? 'pm' : 'am';
+    h = h % 12 || 12;
+    return h + ':' + p[1] + ' ' + ap;
+  }
+  function dateLabel(d) {
+    var p = String(d).split('-');
+    return new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+  }
+  function shortDate(ms) { return new Date(ms).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }); }
+  function clock(ms) { return new Date(ms).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }); }
+  function stamp(ms) { return new Date(ms).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }); }
+  function ymd(d) {
+    var m = d.getMonth() + 1, day = d.getDate();
+    return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
+  }
+  function bookingTime(b) {
+    var p = String(b.date).split('-'), t = String(b.time).split(':');
+    return new Date(+p[0], +p[1] - 1, +p[2], +t[0], +t[1]).getTime();
+  }
+
+  // Mobile numbers: 10 digits, starts with 6 to 9, and not an obvious fake. No OTP.
+  function cleanPhone(raw) {
+    var d = String(raw).replace(/\D/g, '');
+    if (d.length === 12 && d.indexOf('91') === 0) d = d.slice(2);
+    else if (d.length === 11 && d.charAt(0) === '0') d = d.slice(1);
+    return d.slice(0, 10);
+  }
+  function validatePhone(d) {
+    if (d.length !== 10) return 'Enter your 10 digit mobile number.';
+    if (!/^[6-9]/.test(d)) return 'Indian mobile numbers start with 6, 7, 8 or 9.';
+    var fake = 'That number does not look real. Check it and try again.';
+    var counts = {}, max = 0, i;
+    for (i = 0; i < 10; i++) { counts[d[i]] = (counts[d[i]] || 0) + 1; if (counts[d[i]] > max) max = counts[d[i]]; }
+    if (max >= 7) return fake;
+    var up = '0123456789', down = '9876543210';
+    for (i = 0; i + 7 <= 10; i++) {
+      var s = d.substr(i, 7);
+      if (up.indexOf(s) >= 0 || down.indexOf(s) >= 0) return fake;
+    }
+    for (var p = 1; p <= 5; p++) {
+      if (10 % p === 0) {
+        var unit = d.slice(0, p), rep = '';
+        for (var k = 0; k < 10 / p; k++) rep += unit;
+        if (rep === d) return fake;
+      }
+    }
+    return '';
+  }
+  function showPhone(d) { return d ? '+91 ' + d.slice(0, 5) + ' ' + d.slice(5) : ''; }
+  function wirePhone(inputId) {
+    $(inputId).addEventListener('input', function () {
+      var c = cleanPhone($(inputId).value);
+      if ($(inputId).value !== c) $(inputId).value = c;
+    });
+  }
+
+  // Shared storage (db capability). Everything works without it, on this device only.
+  var db = null, uid = null, isStaff = false, watching = false, myStatus = {};
+  var sharedOrders = [], sharedBooks = [];
+  var custDoc = null, offerList = [], offersLoaded = false, dl = null;
+  var menuCfg = {}, callDoc = null, assets = null, tableNo = '', callBusy = false, callNote = '', goneNote = '';
+  var ratings = load('cc-ratings', {}), rateDraft = {};
+  if (!ratings || typeof ratings !== 'object' || Array.isArray(ratings)) ratings = {};
+  var soundOn = load('cc-sound', true) !== false;
+  var lang = load('cc-lang', 'en') === 'hi' ? 'hi' : 'en';
+
+  // Menu extras kept by staff in menu/<itemId>: sold out, badge, photo
+  var BADGES = { bestseller: 'Bestseller', chef: "Chef's pick", 'new': 'New' };
+  var DEFAULT_BADGE = { cappu: 'bestseller', masala: 'bestseller', paneer: 'bestseller', flat: 'chef', brownie: 'chef', matcha: 'new' };
+  function cfgOf(id) { return menuCfg[id] || {}; }
+  function badgeOf(id) {
+    var c = cfgOf(id);
+    var b = typeof c.badge === 'string' ? c.badge : (DEFAULT_BADGE[id] || '');
+    return BADGES[b] ? b : '';
+  }
+  function pruneSoldOut() {
+    var gone = [];
+    Object.keys(cart).forEach(function (k) {
+      if (cfgOf(cart[k].id).soldOut) { gone.push(byId[cart[k].id].name); delete cart[k]; }
+    });
+    if (gone.length) goneNote = 'Sold out right now: ' + gone.join(', ') + '. Remove it to continue.';
+    renderGone();
+  }
+  function renderGone() {
+    var el = $('err-gone');
+    if (!el) return;
+    el.textContent = goneNote;
+    el.hidden = !goneNote;
+  }
+
+  // Table QR codes: #table-N fills in the table number and shows the call buttons
+  function readTable() {
+    var m = /^#table-(\d{1,3})$/.exec(location.hash), n = m ? +m[1] : 0;
+    return n >= 1 ? String(n) : '';
+  }
+  function applyTable() {
+    var t = readTable();
+    if (t) { tableNo = t; save('cc-table', { n: t, at: Date.now() }); }
+    else if (!tableNo) {
+      var s = load('cc-table', null);
+      if (s && s.n && Date.now() - s.at < 3 * 3600000) tableNo = String(s.n);
+    }
+    if (tableNo) {
+      type = 'dinein';
+      var r = document.querySelector('input[name="type"][value="dinein"]');
+      if (r) r.checked = true;
+      $('table-field').hidden = false;
+      $('f-table').value = tableNo;
+    }
+    renderTablebar();
+  }
+  var CALLS = [['waiter', 'Call waiter', '✓ Waiter called'], ['water', 'Bring water', '✓ Water requested'], ['bill', 'Bring the bill', '✓ Bill requested']];
+  function renderTablebar() {
+    var el = $('tablebar');
+    if (!tableNo) { el.hidden = true; el.innerHTML = ''; return; }
+    el.hidden = false;
+    var reqs = (callDoc && callDoc.reqs) || {};
+    var h = '<div><strong>Table ' + esc(tableNo) + '</strong><p>Order from your seat. Need something?</p></div>';
+    if (db && uid) {
+      h += '<div class="tb-row">' + CALLS.map(function (c) {
+        var on = !!reqs[c[0]];
+        return '<button type="button" class="' + (on ? 'btn-fill' : 'btn-line') + '" data-action="call" data-id="' + c[0] + '" aria-pressed="' + on + '">' + (on ? c[2] : c[1]) + '</button>';
+      }).join('') + '</div>';
+      if (callNote) h += '<p class="fine" role="status">' + esc(callNote) + '</p>';
+      else if (Object.keys(reqs).length) h += '<p class="fine">Tap a button again to cancel.</p>';
+    } else {
+      h += '<p class="fine">Need help? Ask the team at the counter.</p>';
+    }
+    h += '<div class="tb-row"><button type="button" class="linkbtn" data-action="notable">Not your table?</button></div>';
+    el.innerHTML = h;
+  }
+  function callAction(kind) {
+    if (!db || !uid || callBusy || !tableNo) return;
+    callBusy = true; callNote = '';
+    var ref = db.doc('calls/' + uid);
+    ref.get().then(function (s) {
+      var d = s.exists ? s.data() : {};
+      var reqs = Object.assign({}, d.reqs || {});
+      if (reqs[kind]) delete reqs[kind]; else reqs[kind] = Date.now();
+      if (!Object.keys(reqs).length) return ref.delete();
+      return ref.set({ uid: uid, table: tableNo, name: savedName || '', reqs: reqs });
+    }).then(function () {}, function () { callNote = 'Could not send. Try again.'; }).then(function () {
+      callBusy = false;
+      renderTablebar();
+      var b = document.querySelector('#tablebar [data-id="' + kind + '"]');
+      if (b) b.focus();
+    });
+  }
+
+  // Rating after an order
+  function starsText(n) { return '★★★★★'.slice(0, n) + '☆☆☆☆☆'.slice(0, 5 - n); }
+  function renderRate(elId, o, stage) {
+    var el = $(elId);
+    if (!el) return;
+    var ae = document.activeElement;
+    if (ae && ae.tagName === 'TEXTAREA' && el.contains(ae)) return;
+    if (!o || stage < 2) { el.innerHTML = ''; return; }
+    var r = ratings[o.id];
+    if (r) {
+      el.innerHTML = '<div class="rate"><p class="r-title">Thanks for your feedback!</p><div class="stars-done" role="img" aria-label="' + r.stars + ' out of 5">' + starsText(r.stars) + '</div>' +
+        (r.text ? '<p class="fine">' + esc(r.text) + '</p>' : '') + '</div>';
+      return;
+    }
+    var d = rateDraft[o.id] || { stars: 0, text: '' };
+    var h = '<div class="rate"><p class="r-title">How was it?</p><div class="stars" role="group" aria-label="Rate your order">';
+    for (var i = 1; i <= 5; i++) {
+      h += '<button type="button" class="star" data-action="rate" data-id="' + esc(o.id) + '" data-n="' + i + '" aria-pressed="' + (i <= d.stars) + '" aria-label="' + i + (i === 1 ? ' star' : ' stars') + '">★</button>';
+    }
+    h += '</div><textarea class="rate-text" data-oid="' + esc(o.id) + '" placeholder="Tell us more (optional)" maxlength="300">' + esc(d.text || '') + '</textarea>' +
+      '<p class="err" role="alert"' + (d.err ? '' : ' hidden') + '>Pick the stars first.</p>' +
+      '<button type="button" class="place" data-action="sendrate" data-id="' + esc(o.id) + '">Send feedback</button></div>';
+    el.innerHTML = h;
+  }
+  function rerenderRates() {
+    if (order) renderRate('done-rate', order, order.stage);
+    if (mineSel) {
+      var mo = mergedOrders().filter(function (x) { return x.id === mineSel; })[0];
+      if (mo) renderRate('mr-rate', mo, stageFor(mo));
+    }
+  }
+  function sendRating(id) {
+    var d = rateDraft[id] || { stars: 0, text: '' };
+    if (!d.stars) { d.err = true; rateDraft[id] = d; rerenderRates(); return; }
+    var oo = mergedOrders().filter(function (x) { return x.id === id; })[0];
+    var r = { stars: d.stars, text: (d.text || '').trim().slice(0, 300), at: Date.now() };
+    ratings[id] = r;
+    save('cc-ratings', ratings);
+    share('feedback', { id: id, token: oo ? oo.token : '', stars: r.stars, text: r.text, name: savedName || '', at: r.at });
+    rerenderRates();
+  }
+
+  // Hindi / English. The customer screen is translated in place, so the English text stays the source.
+  var NAMES_HI = {
+    'Filter Coffee': 'फ़िल्टर कॉफ़ी', 'Cappuccino': 'कैपुचीनो', 'Flat White': 'फ़्लैट वाइट', 'Cold Coffee': 'कोल्ड कॉफ़ी',
+    'Iced Americano': 'आइस्ड अमेरिकानो', 'Masala Chai': 'मसाला चाय', 'Ginger Lemon Tea': 'अदरक नींबू चाय', 'Hot Chocolate': 'हॉट चॉकलेट',
+    'Matcha Latte': 'माचा लाटे', 'Veg Puff': 'वेज पफ़', 'Masala Maggi': 'मसाला मैगी', 'Paneer Tikka Sandwich': 'पनीर टिक्का सैंडविच',
+    'Egg Bhurji Toast': 'एग भुर्जी टोस्ट', 'Chicken Club Sandwich': 'चिकन क्लब सैंडविच', 'Chocolate Brownie': 'चॉकलेट ब्राउनी',
+    'Blueberry Muffin': 'ब्लूबेरी मफ़िन', 'Banana Walnut Cake': 'बनाना वॉलनट केक'
+  };
+  var NAME_KEYS = Object.keys(NAMES_HI).sort(function (a, b) { return b.length - a.length; });
+  var HI = {
+    'Open until 11 pm': 'रात 11 बजे तक खुला', 'Closed now. Opens at 8 am': 'अभी बंद है। सुबह 8 बजे खुलेगा',
+    'Coffee, chai and bites. Order from your phone, then collect at the counter or have it brought to your table.': 'कॉफ़ी, चाय और स्नैक्स। फ़ोन से ऑर्डर करें, फिर काउंटर से ले लें या टेबल पर मँगवाएँ।',
+    'Book a table': 'टेबल बुक करें', 'My orders': 'मेरे ऑर्डर', 'Dismiss': 'हटाएँ',
+    'Search coffee, chai, sandwiches': 'कॉफ़ी, चाय, सैंडविच खोजें', 'Search the menu': 'मेन्यू खोजें',
+    'Veg only': 'सिर्फ़ शाकाहारी', 'Favourites': 'पसंदीदा',
+    'Prices in ₹. 5% GST is added at checkout. Pay at the counter.': 'कीमतें ₹ में। चेकआउट पर 5% GST जुड़ेगा। भुगतान काउंटर पर करें।',
+    'View order': 'ऑर्डर देखें', 'Your order': 'आपका ऑर्डर', 'Close': 'बंद करें', 'Back': 'वापस',
+    'Nothing here yet. Add something from the menu.': 'अभी कुछ नहीं है। मेन्यू से कुछ जोड़ें।',
+    'How would you like it?': 'आप इसे कैसे लेंगे?', 'Pickup': 'पिकअप', 'Dine in': 'यहीं बैठकर',
+    'Your name': 'आपका नाम', 'Enter a name so we can call out your order.': 'अपना नाम लिखें ताकि हम आपका ऑर्डर बुला सकें।',
+    'Mobile number': 'मोबाइल नंबर', 'Needed for your order and stamp card. No OTP.': 'ऑर्डर और स्टैम्प कार्ड के लिए ज़रूरी। कोई OTP नहीं।',
+    'Send me offers and reminders on WhatsApp. I can say STOP any time.': 'मुझे WhatsApp पर ऑफ़र और रिमाइंडर भेजें। मैं कभी भी STOP कह सकता/सकती हूँ।',
+    'Table number': 'टेबल नंबर', 'Enter the table number printed on your table.': 'अपनी टेबल पर छपा टेबल नंबर लिखें।',
+    'Note for the kitchen (optional)': 'किचन के लिए नोट (वैकल्पिक)', 'Extra hot, no sugar in the chai': 'एकदम गरम, चाय में चीनी नहीं',
+    'Promo code': 'प्रोमो कोड', 'Apply': 'लगाएँ', 'Try FIRSTCUP or CHAI20.': 'FIRSTCUP या CHAI20 आज़माएँ।',
+    'Subtotal': 'उप-योग', 'Free coffee (stamp card)': 'मुफ़्त कॉफ़ी (स्टैम्प कार्ड)', 'Drink + bite combo': 'ड्रिंक + बाइट कॉम्बो', 'Total': 'कुल',
+    'Place order': 'ऑर्डर करें',
+    'You pay at the counter when you collect your order. Your receipt appears right after you place it.': 'ऑर्डर लेते समय काउंटर पर भुगतान करें। ऑर्डर के तुरंत बाद आपकी रसीद दिखेगी।',
+    'Your free coffee is ready. Add any coffee to use it.': 'आपकी मुफ़्त कॉफ़ी तैयार है। कोई भी कॉफ़ी जोड़कर इस्तेमाल करें।',
+    'Enter your 10 digit mobile number.': 'अपना 10 अंकों का मोबाइल नंबर लिखें।',
+    'Indian mobile numbers start with 6, 7, 8 or 9.': 'भारतीय मोबाइल नंबर 6, 7, 8 या 9 से शुरू होते हैं।',
+    'That number does not look real. Check it and try again.': 'यह नंबर असली नहीं लग रहा। जाँचकर फिर कोशिश करें।',
+    'Enter a code first.': 'पहले कोड लिखें।', 'That code is not valid or has expired.': 'यह कोड सही नहीं है या ख़त्म हो चुका है।',
+    '15% off your first order, up to ₹60': 'पहले ऑर्डर पर 15% छूट, ₹60 तक', '₹20 off orders above ₹200': '₹200 से ऊपर के ऑर्डर पर ₹20 की छूट',
+    'Regular': 'रेगुलर', 'Large': 'लार्ज', 'Dairy milk': 'डेयरी दूध', 'Oat milk': 'ओट मिल्क', 'Almond milk': 'बादाम मिल्क',
+    'Normal sugar': 'सामान्य चीनी', 'Less sugar': 'कम चीनी', 'No sugar': 'बिना चीनी', 'Size': 'साइज़', 'Milk': 'दूध', 'Sugar': 'चीनी',
+    'Add': 'जोड़ें', 'Add to order': 'ऑर्डर में जोड़ें',
+    'Order placed': 'ऑर्डर हो गया', 'Order': 'ऑर्डर', 'Date': 'तारीख़', 'For': 'नाम', 'Name': 'नाम', 'Guests': 'मेहमान', 'Time': 'समय', 'Choose': 'चुनें',
+    'Received': 'मिल गया', 'Preparing': 'बन रहा है', 'Ready to collect': 'लेने के लिए तैयार', 'At your table': 'आपकी टेबल पर', 'Completed': 'पूरा हुआ',
+    'Paid at the counter': 'काउंटर पर भुगतान हो गया', 'To pay at the counter': 'काउंटर पर भुगतान करना है', 'Pay at counter': 'काउंटर पर भुगतान',
+    'Show this receipt to the cashier. Thank you for visiting Corner Cup.': 'यह रसीद कैशियर को दिखाएँ। Corner Cup आने के लिए धन्यवाद।',
+    'Card full. Your next order gets a free coffee.': 'कार्ड भर गया। आपके अगले ऑर्डर पर एक कॉफ़ी मुफ़्त।',
+    'Card full. Your next order gets a free coffee. Add any coffee to use it.': 'कार्ड भर गया। आपके अगले ऑर्डर पर एक कॉफ़ी मुफ़्त। कोई भी कॉफ़ी जोड़कर इस्तेमाल करें।',
+    'Free coffee used. Your stamp card starts again from zero.': 'मुफ़्त कॉफ़ी इस्तेमाल हो गई। आपका स्टैम्प कार्ड फिर से शून्य से शुरू होगा।',
+    'Sent to the cafe. This updates when the team moves your order along.': 'कैफ़े को भेज दिया गया। टीम के आगे बढ़ाने पर यह अपडेट होगा।',
+    'Demo only: this order was not sent to the cafe, and the status runs at demo speed.': 'सिर्फ़ डेमो: यह ऑर्डर कैफ़े को नहीं भेजा गया, और स्टेटस डेमो की रफ़्तार से चल रहा है।',
+    'Back to menu': 'मेन्यू पर वापस', 'Download receipt': 'रसीद डाउनलोड करें', 'See all my orders': 'मेरे सारे ऑर्डर देखें', 'Order again': 'फिर से ऑर्डर करें', 'Done': 'हो गया',
+    'Preparing your receipt...': 'आपकी रसीद तैयार हो रही है...', 'Receipt saved.': 'रसीद सेव हो गई।',
+    'Saving is not available here. Take a screenshot of the receipt instead.': 'यहाँ सेव करना उपलब्ध नहीं है। रसीद का स्क्रीनशॉट ले लें।',
+    'Could not save the receipt here. Take a screenshot of it instead.': 'रसीद यहाँ सेव नहीं हो सकी। स्क्रीनशॉट ले लें।',
+    'Live now': 'अभी चल रहे', 'Table requests': 'टेबल रिक्वेस्ट', 'Past orders': 'पिछले ऑर्डर',
+    'Nothing yet. Your orders, receipts and table requests will show up here.': 'अभी कुछ नहीं। आपके ऑर्डर, रसीदें और टेबल रिक्वेस्ट यहाँ दिखेंगे।',
+    'Confirmed': 'पक्का', 'Declined': 'मना', 'Demo': 'डेमो', 'Waiting': 'इंतज़ार',
+    'Tell us when you are coming. The cafe confirms your table here.': 'बताइए आप कब आ रहे हैं। कैफ़े आपकी टेबल यहीं कन्फ़र्म करेगा।',
+    'Anything we should know? (optional)': 'कुछ और बताना है? (वैकल्पिक)', 'Birthday, high chair, window seat': 'बर्थडे, हाई चेयर, खिड़की वाली सीट',
+    'Request table': 'टेबल माँगें', 'Table request': 'टेबल रिक्वेस्ट', 'Table': 'टेबल',
+    'Waiting for the cafe': 'कैफ़े के जवाब का इंतज़ार', 'Table confirmed': 'टेबल पक्की', 'Cannot seat you then': 'उस समय जगह नहीं है', 'Demo request': 'डेमो रिक्वेस्ट',
+    'Demo only: this request was not sent to the cafe.': 'सिर्फ़ डेमो: यह रिक्वेस्ट कैफ़े को नहीं भेजी गई।',
+    'See you then. Show this screen at the door if asked.': 'तब मिलते हैं। पूछे जाने पर दरवाज़े पर यह स्क्रीन दिखाएँ।',
+    'Please try another time or call the cafe.': 'कृपया कोई और समय चुनें या कैफ़े को कॉल करें।',
+    'Sent to the cafe. This page updates when they reply.': 'कैफ़े को भेज दिया गया। उनके जवाब देने पर यह पेज अपडेट होगा।',
+    'Enter a name for the booking.': 'बुकिंग के लिए नाम लिखें।', 'Choose a date.': 'तारीख़ चुनें।', 'Choose a time.': 'समय चुनें।',
+    'That time has already passed. Choose a later one.': 'वह समय निकल चुका है। बाद का समय चुनें।',
+    'No favourites yet. Tap the heart on any item to save it here.': 'अभी कोई पसंदीदा नहीं। किसी भी आइटम का दिल दबाकर यहाँ सेव करें।',
+    'Nothing matches. Try another word or clear the filters.': 'कुछ नहीं मिला। कोई और शब्द आज़माएँ या फ़िल्टर हटाएँ।', 'Clear filters': 'फ़िल्टर हटाएँ',
+    'Coffee': 'कॉफ़ी', 'Chai and More': 'चाय और बहुत कुछ', 'Bites': 'बाइट्स', 'Sweet': 'मीठा',
+    'Bestseller': 'बेस्टसेलर', "Chef's pick": 'शेफ़ की पसंद', 'New': 'नया', 'Sold out': 'ख़त्म',
+    'South Indian decoction with frothed milk': 'साउथ इंडियन डिकॉक्शन, झागदार दूध के साथ',
+    'Double shot, steamed milk, thick foam': 'डबल शॉट, स्टीम्ड दूध, गाढ़ा झाग',
+    'Ristretto with silky microfoam': 'रिस्ट्रेटो के साथ मखमली माइक्रोफ़ोम',
+    'Blended with milk and ice, chocolate drizzle': 'दूध और बर्फ़ के साथ ब्लेंड, ऊपर से चॉकलेट',
+    'Two shots over ice, served black': 'बर्फ़ पर दो शॉट, बिना दूध',
+    'Cardamom, ginger and crushed tea leaves': 'इलायची, अदरक और कुटी हुई चायपत्ती',
+    'Light, sharp and warming': 'हल्की, तीखी और गरमाहट देने वाली',
+    'Dark chocolate melted into steamed milk': 'स्टीम्ड दूध में पिघली डार्क चॉकलेट',
+    'Ceremonial grade matcha with your choice of milk': 'आपकी पसंद के दूध के साथ सेरेमोनियल ग्रेड माचा',
+    'Flaky pastry, spiced potato and peas': 'परतदार पेस्ट्री, मसालेदार आलू और मटर',
+    'Onion, tomato, green chilli, a little butter': 'प्याज़, टमाटर, हरी मिर्च और थोड़ा मक्खन',
+    'Grilled on sourdough with mint chutney': 'सॉरडो पर ग्रिल, पुदीने की चटनी के साथ',
+    'Soft scrambled eggs with onion and coriander': 'प्याज़ और धनिया के साथ नरम स्क्रैम्बल्ड अंडे',
+    'Three layers, grilled chicken, lettuce, cheese': 'तीन परतें, ग्रिल्ड चिकन, लेट्यूस, चीज़',
+    'Eggless, fudgy, served warm': 'बिना अंडे की, मुलायम, गरमागरम',
+    'Baked fresh each morning': 'हर सुबह ताज़ा बेक',
+    'One thick slice, lightly toasted': 'एक मोटा स्लाइस, हल्का टोस्टेड',
+    'Order from your seat. Need something?': 'अपनी सीट से ऑर्डर करें। कुछ चाहिए?',
+    'Call waiter': 'वेटर बुलाएँ', 'Bring water': 'पानी मँगवाएँ', 'Bring the bill': 'बिल मँगवाएँ',
+    '✓ Waiter called': '✓ वेटर को बुलाया', '✓ Water requested': '✓ पानी मँगवाया', '✓ Bill requested': '✓ बिल मँगवाया',
+    'Tap a button again to cancel.': 'रद्द करने के लिए बटन फिर से दबाएँ।', 'Not your table?': 'यह आपकी टेबल नहीं?',
+    'Need help? Ask the team at the counter.': 'मदद चाहिए? काउंटर पर टीम से कहें।', 'Could not send. Try again.': 'भेज नहीं सके। फिर कोशिश करें।',
+    'How was it?': 'कैसा लगा?', 'Tell us more (optional)': 'और बताइए (वैकल्पिक)', 'Send feedback': 'फ़ीडबैक भेजें',
+    'Pick the stars first.': 'पहले स्टार चुनें।', 'Thanks for your feedback!': 'आपके फ़ीडबैक के लिए धन्यवाद!'
+  };
+  function T(x) { var r = trCore(x); return r == null ? x : r; }
+  var HIP = [
+    [/^(\d+) items?$/, function (m) { return m[1] + ' आइटम'; }],
+    [/^(\d+) in order$/, function (m) { return m[1] + ' ऑर्डर में'; }],
+    [/^(.+) each$/, function (m) { return m[1] + ' प्रति'; }],
+    [/^from (.+)$/, function (m) { return m[1] + ' से'; }],
+    [/^Add (.+) more to use (\w+)\.$/, function (m) { return m[2] + ' लगाने के लिए ' + m[1] + ' और जोड़ें।'; }],
+    [/^(\w+) works on a first order only\.$/, function (m) { return m[1] + ' सिर्फ़ पहले ऑर्डर पर चलता है।'; }],
+    [/^(\w+) applied: (.+)\.$/, function (m) { return m[1] + ' लग गया: ' + T(m[2]) + '।'; }],
+    [/^Add a drink and a bite together to save (.+)\.$/, function (m) { return 'ड्रिंक और बाइट साथ लें और ' + m[1] + ' बचाएँ।'; }],
+    [/^Place order · (.+)$/, function (m) { return 'ऑर्डर करें · ' + m[1]; }],
+    [/^Add to order · (.+)$/, function (m) { return 'ऑर्डर में जोड़ें · ' + m[1]; }],
+    [/^Welcome back(?:, (.+))?$/, function (m) { return 'वापसी पर स्वागत है' + (m[1] ? ', ' + m[1] : ''); }],
+    [/^Last time: (.+)$/, function (m) { return 'पिछली बार: ' + m[1]; }],
+    [/^Receipt (.+)$/, function (m) { return 'रसीद ' + m[1]; }],
+    [/^Table (\S+)$/, function (m) { return 'टेबल ' + m[1]; }],
+    [/^Table for (\d+)$/, function (m) { return m[1] + ' लोगों के लिए टेबल'; }],
+    [/^Pickup for (.+)$/, function (m) { return m[1] + ' के लिए पिकअप'; }],
+    [/^Order status: (.+)$/, function (m) { return 'ऑर्डर की स्थिति: ' + T(m[1]); }],
+    [/^Table request status: (.+)$/, function (m) { return 'टेबल रिक्वेस्ट की स्थिति: ' + T(m[1]); }],
+    [/^Ready in about (\d+) min$/, function (m) { return 'लगभग ' + m[1] + ' मिनट में तैयार'; }],
+    [/^(\d+) guests?$/, function (m) { return m[1] + ' मेहमान'; }],
+    [/^Stamp added: (\d+) of (\d+)\. Stamps never expire\.$/, function (m) { return 'स्टैम्प जुड़ा: ' + m[2] + ' में से ' + m[1] + '। स्टैम्प कभी ख़त्म नहीं होते।'; }],
+    [/^(\d+) of (\d+) stamps\. (\d+) more orders? for a free coffee\. Stamps never expire\.$/, function (m) { return m[2] + ' में से ' + m[1] + ' स्टैम्प। मुफ़्त कॉफ़ी के लिए ' + m[3] + ' ऑर्डर और। स्टैम्प कभी ख़त्म नहीं होते।'; }],
+    [/^Sold out right now: (.+)\. Remove it to continue\.$/, function (m) { return 'अभी ख़त्म है: ' + (nameSub(m[1]) || m[1]) + '। आगे बढ़ने के लिए इसे हटाएँ।'; }]
+  ];
+  function nameSub(c) {
+    var out = c, ch = false;
+    NAME_KEYS.forEach(function (k) { if (out.indexOf(k) >= 0) { out = out.split(k).join(NAMES_HI[k]); ch = true; } });
+    return ch ? out : null;
+  }
+  function trCore(c) {
+    if (Object.prototype.hasOwnProperty.call(HI, c)) return HI[c];
+    for (var i = 0; i < HIP.length; i++) {
+      var m = HIP[i][0].exec(c);
+      if (m) return HIP[i][1](m);
+    }
+    if (c.indexOf(' · ') > 0) {
+      var changed = false;
+      var parts = c.split(' · ').map(function (x) {
+        var r = trCore(x);
+        if (r != null && r !== x) { changed = true; return r; }
+        return x;
+      });
+      if (changed) return parts.join(' · ');
+    }
+    return nameSub(c);
+  }
+  function tr(s) {
+    var core = String(s).trim();
+    if (!core) return null;
+    var out = trCore(core);
+    if (out == null || out === core) return null;
+    return s.slice(0, s.indexOf(core)) + out + s.slice(s.indexOf(core) + core.length);
+  }
+  var origText = new WeakMap(), origAttr = new WeakMap(), langObs = null;
+  function applyNode(n) {
+    var cur = n.nodeValue, rec = origText.get(n);
+    if (rec && cur === rec.hi) return;
+    var h = tr(cur);
+    if (h === null) { if (rec) origText.delete(n); return; }
+    origText.set(n, { en: cur, hi: h });
+    n.nodeValue = h;
+  }
+  function applyAttr(el) {
+    var cur = el.getAttribute('placeholder'), rec = origAttr.get(el);
+    if (cur == null || (rec && cur === rec.hi)) return;
+    var h = tr(cur);
+    if (h === null) { if (rec) origAttr.delete(el); return; }
+    origAttr.set(el, { en: cur, hi: h });
+    el.setAttribute('placeholder', h);
+  }
+  function textNodes(root) {
+    var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode: function (n) {
+        var p = n.parentNode && n.parentNode.nodeName;
+        return p === 'TEXTAREA' || p === 'SCRIPT' || p === 'STYLE' ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    var list = [], n;
+    while ((n = w.nextNode())) list.push(n);
+    return list;
+  }
+  function translateTree(root) {
+    if (root.nodeType === 3) { if (root.parentNode && root.parentNode.nodeName !== 'TEXTAREA') applyNode(root); return; }
+    if (root.nodeType !== 1) return;
+    textNodes(root).forEach(applyNode);
+    var els = Array.prototype.slice.call(root.querySelectorAll('[placeholder]'));
+    if (root.hasAttribute('placeholder')) els.push(root);
+    els.forEach(applyAttr);
+  }
+  function watchLang() {
+    if (!window.MutationObserver) return;
+    var root = $('customer');
+    var cfgObs = { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['placeholder'] };
+    if (!langObs) {
+      langObs = new MutationObserver(function (muts) {
+        langObs.disconnect();
+        muts.forEach(function (m) {
+          if (m.type === 'childList') Array.prototype.forEach.call(m.addedNodes, translateTree);
+          else if (m.type === 'characterData') applyNode(m.target);
+          else if (m.type === 'attributes') applyAttr(m.target);
+        });
+        langObs.observe(root, cfgObs);
+      });
+    }
+    langObs.observe(root, cfgObs);
+  }
+  function setLang(l) {
+    lang = l;
+    save('cc-lang', l);
+    $('lang-btn').textContent = l === 'hi' ? 'English' : 'हिन्दी';
+    var root = $('customer');
+    if (l === 'hi') {
+      if (langObs) langObs.disconnect();
+      translateTree(root);
+      watchLang();
+    } else {
+      if (langObs) langObs.disconnect();
+      textNodes(root).forEach(function (n) {
+        var rec = origText.get(n);
+        if (rec && n.nodeValue === rec.hi) n.nodeValue = rec.en;
+        origText.delete(n);
+      });
+      Array.prototype.forEach.call(root.querySelectorAll('[placeholder]'), function (el) {
+        var rec = origAttr.get(el);
+        if (rec && el.getAttribute('placeholder') === rec.hi) el.setAttribute('placeholder', rec.en);
+        origAttr.delete(el);
+      });
+    }
+  }
+
+  // State
+  var cart = load('corner-cup-cart-2', {});
+  var favs = load('corner-cup-favs', {});
+  var stamps = Math.min(STAMPS_FULL, Math.max(0, +load('corner-cup-stamps', 0) || 0));
+  var localOrders = load('corner-cup-orders', []);
+  var localBooks = load('corner-cup-books', []);
+  var dismissed = load('corner-cup-dismissed', []);
+  var savedPhone = String(load('corner-cup-phone', '') || '');
+  var savedName = String(load('corner-cup-name', '') || '');
+  var savedOptIn = load('corner-cup-optin', true) !== false;
+  if (!Array.isArray(localOrders)) localOrders = [];
+  if (!Array.isArray(localBooks)) localBooks = [];
+  if (!Array.isArray(dismissed)) dismissed = [];
+  var type = 'pickup';
+  var q = '', vegOnly = false, favOnly = false;
+  var promoCode = '', promoErr = '';
+  var order = null, booking = null, timers = [];
+  var optItem = null, optSel = null, lastOpts = {};
+  var mineSel = null;
+  var opener = null;
+
+  function keyOf(id, o) {
+    var it = byId[id];
+    if (!it.custom) return id;
+    return id + '|' + o.size + '|' + (it.custom === 'milk' ? o.milk : '-') + '|' + o.sugar;
+  }
+  if (!cart || typeof cart !== 'object') cart = {};
+  Object.keys(cart).forEach(function (k) {
+    var l = cart[k], it = l && byId[l.id];
+    var ok = it && l.qty > 0 && keyOf(l.id, l) === k;
+    if (ok && it.custom) ok = find(SIZES, l.size) && find(SUGARS, l.sugar) && (it.custom !== 'milk' || find(MILKS, l.milk));
+    if (!ok) delete cart[k];
+  });
+
+  function unitPrice(id, o) {
+    var it = byId[id], p = it.price;
+    if (it.custom) {
+      p += find(SIZES, o.size).add;
+      if (it.custom === 'milk') p += find(MILKS, o.milk).add;
+    }
+    return p;
+  }
+  function optLabel(id, o) {
+    var it = byId[id];
+    if (!it.custom) return '';
+    var p = [find(SIZES, o.size).label];
+    if (it.custom === 'milk') p.push(find(MILKS, o.milk).label + ' milk');
+    p.push(find(SUGARS, o.sugar).label);
+    return p.join(' · ');
+  }
+  function qtyOfItem(id) {
+    var n = 0;
+    Object.keys(cart).forEach(function (k) { if (cart[k].id === id) n += cart[k].qty; });
+    return n;
+  }
+  function rewardReady() { return stamps >= STAMPS_FULL; }
+
+  // Offers: built-in codes plus the ones staff create
+  function offerFor(code) {
+    if (!code) return null;
+    if (CODES[code]) return CODES[code];
+    for (var i = 0; i < offerList.length; i++) {
+      var o = offerList[i];
+      if (o.code === code && o.active !== false && (!o.expires || o.expires > Date.now())) {
+        return {
+          label: o.title, min: o.min || 0, first: false,
+          calc: function (base) { return o.kind === 'percent' ? Math.round(base * o.value / 100) : o.value; }
+        };
+      }
+    }
+    return null;
+  }
+  function isFirstOrder() {
+    return mergedOrders().length === 0 && !(custDoc && custDoc.orders > 0);
+  }
+
+  function totals() {
+    var sub = 0, n = 0, coffeeMin = null, hasDrink = false, hasFood = false;
+    Object.keys(cart).forEach(function (k) {
+      var l = cart[k], it = byId[l.id], up = unitPrice(l.id, l);
+      sub += up * l.qty;
+      n += l.qty;
+      if (it.kind === 'coffee') coffeeMin = coffeeMin === null ? up : Math.min(coffeeMin, up);
+      if (it.kind === 'coffee' || it.kind === 'drink') hasDrink = true;
+      if (it.kind === 'food') hasFood = true;
+    });
+    var reward = rewardReady() && coffeeMin !== null ? coffeeMin : 0;
+    var combo = hasDrink && hasFood ? Math.min(COMBO, sub - reward) : 0;
+    var base = sub - reward - combo;
+    var promo = 0, promoMsg = '';
+    var po = offerFor(promoCode);
+    if (po) {
+      if (po.min && sub < po.min) promoMsg = 'Add ' + fmt(po.min - sub) + ' more to use ' + promoCode + '.';
+      else if (po.first && !isFirstOrder()) promoMsg = promoCode + ' works on a first order only.';
+      else promo = Math.min(po.calc(base), base);
+    }
+    var taxable = base - promo;
+    var gst = Math.round(taxable * GST * 100) / 100;
+    return {
+      sub: sub, n: n, reward: reward, combo: combo, promo: promo, promoMsg: promoMsg, gst: gst,
+      total: Math.round((taxable + gst) * 100) / 100,
+      rewardWaiting: rewardReady() && coffeeMin === null && n > 0,
+      comboHint: n > 0 && ((hasDrink && !hasFood) || (!hasDrink && hasFood))
+    };
+  }
+
+  // Opening status
+  (function () {
+    var h = new Date().getHours();
+    var open = h >= 8 && h < 23;
+    $('status-text').textContent = open ? 'Open until 11 pm' : 'Closed now. Opens at 8 am';
+    if (!open) $('status').classList.add('closed');
+  })();
+
+  // Stamp card: stamps never expire, and a full card gives one free coffee
+  function renderStamps() {
+    var h = '';
+    for (var i = 0; i < STAMPS_FULL; i++) h += '<span class="stamp' + (i < stamps ? ' on' : '') + '"></span>';
+    $('stamp-row').innerHTML = h;
+    var left = STAMPS_FULL - stamps;
+    $('stamp-text').textContent = rewardReady()
+      ? 'Card full. Your next order gets a free coffee. Add any coffee to use it.'
+      : stamps + ' of ' + STAMPS_FULL + ' stamps. ' + left + ' more ' + (left === 1 ? 'order' : 'orders') + ' for a free coffee. Stamps never expire.';
+  }
+
+  // Menu
+  var HEART = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>';
+
+  function stepperHTML(key, qty, name) {
+    var n = esc(name), k = esc(key);
+    return '<div class="step"><button type="button" data-action="dec" data-key="' + k + '" aria-label="Remove one ' + n + '">−</button>' +
+      '<output aria-live="polite">' + qty + '</output>' +
+      '<button type="button" data-action="inc" data-key="' + k + '" aria-label="Add one more ' + n + '">+</button></div>';
+  }
+  function menuCtl(id) {
+    var it = byId[id], n = qtyOfItem(id);
+    if (cfgOf(id).soldOut && (it.custom || !n)) return '<span class="soldout">Sold out</span>';
+    if (it.custom) {
+      return '<div class="stack"><button type="button" class="add" data-action="custom" data-id="' + id + '" aria-label="Choose options and add ' + esc(it.name) + '">Add</button>' +
+        (n ? '<span class="inorder">' + n + ' in order</span>' : '') + '</div>';
+    }
+    if (n) return stepperHTML(id, n, it.name);
+    return '<button type="button" class="add" data-action="inc" data-key="' + id + '" aria-label="Add ' + esc(it.name) + '">Add</button>';
+  }
+  function itemHTML(i) {
+    var fav = !!favs[i.id];
+    var c = cfgOf(i.id), bd = badgeOf(i.id);
+    return '<li class="item' + (c.img ? ' has-img' : '') + (c.soldOut ? ' out' : '') + '">' + (c.img ? '<img class="thumb" src="' + esc(c.img) + '" alt="" loading="lazy">' : '') +
+      '<div class="info"><div class="nm"><span class="mark ' + (i.veg ? 'veg' : 'nonveg') + '" role="img" aria-label="' + (i.veg ? 'Vegetarian' : 'Non-vegetarian') + '"></span><h3>' + esc(i.name) + '</h3>' +
+      (bd ? '<span class="tag ' + bd + '">' + esc(BADGES[bd]) + '</span>' : '') +
+      '<button type="button" class="fav" data-action="fav" data-id="' + i.id + '" aria-pressed="' + fav + '" aria-label="Favourite ' + esc(i.name) + '">' + HEART + '</button></div>' +
+      '<p>' + esc(i.desc) + '</p><span class="price">' + (i.custom ? 'from ' : '') + fmt(i.price) + '</span></div>' +
+      '<div class="ctl" data-ctl="' + i.id + '">' + menuCtl(i.id) + '</div></li>';
+  }
+  function visibleItems(c) {
+    return c.items.filter(function (i) {
+      if (vegOnly && !i.veg) return false;
+      if (favOnly && !favs[i.id]) return false;
+      if (q && (i.name + ' ' + i.desc).toLowerCase().indexOf(q) < 0) return false;
+      return true;
+    });
+  }
+  var io = null;
+  function renderMenu() {
+    var html = '', chipHtml = '', shown = 0;
+    MENU.forEach(function (c, ci) {
+      var items = visibleItems(c);
+      if (!items.length) return;
+      shown++;
+      html += '<section class="cat" id="cat-' + ci + '" data-i="' + ci + '" aria-labelledby="h-' + ci + '"><h2 id="h-' + ci + '">' + esc(c.cat) + '</h2><ul>' + items.map(itemHTML).join('') + '</ul></section>';
+      chipHtml += '<button type="button" class="chip" data-action="goto" data-i="' + ci + '"' + (shown === 1 ? ' aria-current="true"' : '') + '>' + esc(c.cat) + '</button>';
+    });
+    if (!shown) {
+      var msg = favOnly && !Object.keys(favs).length ? 'No favourites yet. Tap the heart on any item to save it here.' : 'Nothing matches. Try another word or clear the filters.';
+      html = '<div class="none"><p>' + msg + '</p><button type="button" class="ghost" data-action="clearf">Clear filters</button></div>';
+    }
+    $('menu').innerHTML = html;
+    $('chips').innerHTML = chipHtml;
+    if (io) {
+      io.disconnect();
+      Array.prototype.forEach.call(document.querySelectorAll('.cat'), function (s) { io.observe(s); });
+    }
+  }
+  function renderCtls() {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-ctl]'), function (el) {
+      el.innerHTML = menuCtl(el.getAttribute('data-ctl'));
+    });
+  }
+  function setActive(i) {
+    var cs = $('chips').querySelectorAll('.chip'), rail = $('chips');
+    Array.prototype.forEach.call(cs, function (c) {
+      if (+c.getAttribute('data-i') === i) {
+        c.setAttribute('aria-current', 'true');
+        rail.scrollLeft = Math.max(0, c.offsetLeft - 24);
+      } else c.removeAttribute('aria-current');
+    });
+  }
+  if ('IntersectionObserver' in window) {
+    io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { if (e.isIntersecting) setActive(+e.target.getAttribute('data-i')); });
+    }, { rootMargin: '-90px 0px -65% 0px' });
+  }
+
+  // Cart rendering
+  function renderLines() {
+    var keys = Object.keys(cart);
+    $('empty').hidden = keys.length > 0;
+    $('form').hidden = keys.length === 0;
+    $('lines').innerHTML = keys.map(function (k) {
+      var l = cart[k], it = byId[l.id], ol = optLabel(l.id, l);
+      return '<li class="line"><div><div class="nm"><span class="mark ' + (it.veg ? 'veg' : 'nonveg') + '" role="img" aria-label="' + (it.veg ? 'Vegetarian' : 'Non-vegetarian') + '"></span><h3>' + esc(it.name) + '</h3></div>' +
+        (ol ? '<span class="each">' + esc(ol) + '</span>' : '') +
+        '<span class="each">' + fmt(unitPrice(l.id, l)) + ' each</span></div>' +
+        stepperHTML(k, l.qty, it.name) +
+        '<span class="sum">' + fmt(unitPrice(l.id, l) * l.qty) + '</span></li>';
+    }).join('');
+  }
+  function renderPromoMsg(t) {
+    var el = $('promo-msg');
+    el.className = 'hint';
+    var po = offerFor(promoCode);
+    if (promoCode && po) {
+      if (t.promoMsg) { el.textContent = t.promoMsg; el.classList.add('bad'); }
+      else { el.textContent = promoCode + ' applied: ' + po.label + '.'; el.classList.add('ok'); }
+    } else if (promoErr) {
+      el.textContent = promoErr; el.classList.add('bad');
+    } else {
+      el.textContent = 'Try FIRSTCUP or CHAI20.';
+    }
+  }
+  function renderTotals() {
+    var t = totals();
+    var h = '<div><span>Subtotal</span><span>' + fmt(t.sub) + '</span></div>';
+    if (t.reward > 0) h += '<div class="save"><span>Free coffee (stamp card)</span><span>−' + fmt(t.reward) + '</span></div>';
+    if (t.combo > 0) h += '<div class="save"><span>Drink + bite combo</span><span>−' + fmt(t.combo) + '</span></div>';
+    if (t.promo > 0) h += '<div class="save"><span>' + esc(promoCode) + '</span><span>−' + fmt(t.promo) + '</span></div>';
+    h += '<div><span>GST (5%)</span><span>' + fmt(t.gst) + '</span></div>';
+    h += '<div class="grand"><span>Total</span><span>' + fmt(t.total) + '</span></div>';
+    $('totals').innerHTML = h;
+    var hints = '';
+    if (t.rewardWaiting) hints += '<p class="hint ok">Your free coffee is ready. Add any coffee to use it.</p>';
+    if (t.comboHint) hints += '<p class="hint ok">Add a drink and a bite together to save ' + fmt(COMBO) + '.</p>';
+    $('hints').innerHTML = hints;
+    $('place').textContent = 'Place order · ' + fmt(t.total);
+    $('place').disabled = t.n === 0;
+    renderPromoMsg(t);
+  }
+  function updateAll() {
+    var t = totals();
+    renderCtls();
+    $('cartbar').hidden = t.n === 0;
+    $('bar-count').textContent = t.n + (t.n === 1 ? ' item' : ' items');
+    $('bar-amt').textContent = fmt(t.total);
+    renderLines();
+    renderTotals();
+    save('corner-cup-cart-2', cart);
+  }
+  function changeKey(key, delta) {
+    var l = cart[key];
+    if (!l) return;
+    l.qty += delta;
+    if (l.qty <= 0) delete cart[key]; else if (l.qty > 20) l.qty = 20;
+    updateAll();
+  }
+  function addLine(id, o) {
+    var it = byId[id];
+    var line = { id: id, size: it.custom ? o.size : null, milk: it.custom === 'milk' ? o.milk : null, sugar: it.custom ? o.sugar : null, qty: 1 };
+    var key = keyOf(id, line);
+    if (cart[key]) cart[key].qty = Math.min(20, cart[key].qty + 1); else cart[key] = line;
+    updateAll();
+  }
+
+  // Sheets
+  function lockOn() { document.body.classList.add('lock'); }
+  function lockOff() { document.body.classList.remove('lock'); }
+  function openSheet(view) {
+    opener = document.activeElement;
+    var done = view === 'done' && order;
+    $('view-cart').hidden = !!done;
+    $('view-done').hidden = !done;
+    if (done) renderDone();
+    $('scrim').hidden = false;
+    lockOn();
+    $('sheet').scrollTop = 0;
+    $('sheet').focus();
+  }
+  function closeSheet() {
+    $('scrim').hidden = true;
+    lockOff();
+    if (opener && opener.focus && document.contains(opener) && !opener.hidden) opener.focus();
+    opener = null;
+  }
+
+  function radios(title, name, list, sel) {
+    return '<fieldset><legend>' + title + '</legend><div class="seg">' + list.map(function (o) {
+      var label = name === 'milk' ? o.label + ' milk' : o.label;
+      return '<label><input type="radio" name="' + name + '" value="' + o.id + '"' + (o.id === sel ? ' checked' : '') + '><span>' + esc(label) + (o.add ? '<em>+' + fmt(o.add) + '</em>' : '') + '</span></label>';
+    }).join('') + '</div></fieldset>';
+  }
+  function updateOptBtn() { $('opts-add').textContent = 'Add to order · ' + fmt(unitPrice(optItem.id, optSel)); }
+  function openOpts(id) {
+    opener = document.activeElement;
+    optItem = byId[id];
+    var last = lastOpts[id];
+    optSel = last ? { size: last.size, milk: last.milk, sugar: last.sugar } : { size: 'reg', milk: 'dairy', sugar: 'normal' };
+    $('opt-title').textContent = optItem.name;
+    $('opt-desc').textContent = optItem.desc;
+    var h = radios('Size', 'size', SIZES, optSel.size);
+    if (optItem.custom === 'milk') h += radios('Milk', 'milk', MILKS, optSel.milk);
+    h += radios('Sugar', 'sugar', SUGARS, optSel.sugar);
+    $('opts-body').innerHTML = h;
+    updateOptBtn();
+    $('scrim2').hidden = false;
+    lockOn();
+    $('sheet2').scrollTop = 0;
+    $('sheet2').focus();
+  }
+  function closeOpts() {
+    $('scrim2').hidden = true;
+    lockOff();
+    var back = optItem && document.querySelector('[data-action="custom"][data-id="' + optItem.id + '"]');
+    if (back) back.focus();
+    else if (opener && opener.focus && document.contains(opener)) opener.focus();
+    opener = null;
+  }
+  $('opts-body').addEventListener('change', function (e) {
+    if (e.target && e.target.name) { optSel[e.target.name] = e.target.value; updateOptBtn(); }
+  });
+  $('opts-add').addEventListener('click', function () {
+    lastOpts[optItem.id] = { size: optSel.size, milk: optSel.milk, sugar: optSel.sugar };
+    addLine(optItem.id, optSel);
+    closeOpts();
+  });
+
+  // Promo
+  function applyPromo() {
+    var v = $('f-promo').value.trim().toUpperCase();
+    if (!v) { promoCode = ''; promoErr = 'Enter a code first.'; }
+    else if (!offerFor(v)) { promoCode = ''; promoErr = 'That code is not valid or has expired.'; }
+    else { promoCode = v; promoErr = ''; }
+    renderTotals();
+  }
+  $('f-promo').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); applyPromo(); }
+  });
+  $('f-promo').addEventListener('input', function () {
+    if (promoErr) { promoErr = ''; renderTotals(); }
+  });
+
+  // Order and booking history: shared copy when available, plus this device's own copy
+  function mergedOrders() {
+    var m = {};
+    localOrders.forEach(function (o) { m[o.id] = o; });
+    sharedOrders.forEach(function (o) { m[o.id] = Object.assign({}, o); });
+    return Object.keys(m).map(function (k) { return m[k]; }).sort(function (a, b) { return b.placedAt - a.placedAt; });
+  }
+  function mergedBooks() {
+    var m = {};
+    localBooks.forEach(function (b) { m[b.id] = b; });
+    sharedBooks.forEach(function (b) { m[b.id] = Object.assign({}, b); });
+    return Object.keys(m).map(function (k) { return m[k]; }).sort(function (a, b) { return b.placedAt - a.placedAt; });
+  }
+  function stageFor(o) {
+    var n = myStatus.stages && myStatus.stages[o.id];
+    if (typeof n === 'number') return Math.min(3, n);
+    if (order && order.id === o.id) return order.stage;
+    if (o.demo) return 3;
+    if (Date.now() - o.placedAt > STALE_MS) return 3;
+    return 0;
+  }
+  function bkStateOf(b) {
+    if (b.demo) return 'demo';
+    var s = myStatus.bookings && myStatus.bookings[b.id];
+    return s || 'pending';
+  }
+  function isLive(o) { return stageFor(o) < 3; }
+  function stageName(o, s) { return s === 2 ? (o.type === 'dinein' ? 'At your table' : 'Ready to collect') : STAGE_NAMES[s]; }
+
+  // Sharing with the cafe: one document per customer under orders/<id> and bookings/<id>
+  function share(coll, payload) {
+    if (!db || !uid) return Promise.resolve(false);
+    var ref = db.doc(coll + '/' + uid);
+    return ref.get().then(function (s) {
+      var d = s.exists ? s.data() : null;
+      var list = (d && d[coll]) || [];
+      var body = { uid: uid };
+      body[coll] = list.concat([payload]).slice(-8);
+      return ref.set(body);
+    }).then(function () { return true; }, function () { return false; });
+  }
+  // The customer record the cafe uses for stamps, offers and WhatsApp
+  function upsertCustomer(f) {
+    if (!db || !uid) return Promise.resolve(false);
+    var ref = db.doc('customers/' + uid);
+    return ref.get().then(function (s) {
+      var d = s.exists ? s.data() : {}, now = Date.now();
+      var body = {
+        uid: uid, phone: f.phone, name: f.name,
+        optIn: f.optIn !== undefined ? f.optIn : !!d.optIn,
+        orders: d.orders || 0, spent: d.spent || 0,
+        stamps: typeof d.stamps === 'number' ? d.stamps : 0,
+        freeCoffees: d.freeCoffees || 0, firstAt: d.firstAt || now, lastAt: d.lastAt || 0
+      };
+      if (f.order) {
+        body.orders += 1;
+        body.spent += f.order.total;
+        body.stamps = f.stamps;
+        body.lastAt = now;
+        if (f.order.free) body.freeCoffees += 1;
+      }
+      return ref.set(body);
+    }).then(function () { return true; }, function () { return false; });
+  }
+  function watchStatus() {
+    if (!db || !uid || watching) return;
+    watching = true;
+    db.doc('status/' + uid).onSnapshot(function (s) {
+      myStatus = (s.exists && s.data()) || {};
+      applyStatus();
+    }, function () {});
+    db.doc('orders/' + uid).onSnapshot(function (s) {
+      var d = s.exists && s.data();
+      sharedOrders = (d && d.orders) || [];
+      afterData();
+    }, function () {});
+    db.doc('bookings/' + uid).onSnapshot(function (s) {
+      var d = s.exists && s.data();
+      sharedBooks = (d && d.bookings) || [];
+      afterData();
+    }, function () {});
+    db.doc('customers/' + uid).onSnapshot(function (s) {
+      custDoc = s.exists ? s.data() : null;
+      if (custDoc) {
+        if (typeof custDoc.stamps === 'number') {
+          stamps = Math.min(STAMPS_FULL, Math.max(0, custDoc.stamps));
+          save('corner-cup-stamps', stamps);
+        }
+        if (custDoc.phone && !savedPhone) { savedPhone = custDoc.phone; save('corner-cup-phone', savedPhone); }
+        if (custDoc.name && !savedName) { savedName = custDoc.name; save('corner-cup-name', savedName); }
+        prefill();
+      }
+      renderStamps();
+      renderTotals();
+      renderWelcome();
+    }, function () {});
+    db.collection('menu').onSnapshot(function (snap) {
+      var m = {};
+      snap.docs.forEach(function (d) { m[d.id] = d.data() || {}; });
+      menuCfg = m;
+      pruneSoldOut();
+      renderMenu();
+      updateAll();
+      renderStaff();
+    }, function () {});
+    db.doc('calls/' + uid).onSnapshot(function (s) {
+      callDoc = s.exists ? s.data() : null;
+      renderTablebar();
+    }, function () {});
+    db.collection('offers').onSnapshot(function (snap) {
+      offerList = snap.docs.map(function (d) { return d.data() || {}; });
+      offersLoaded = true;
+      renderTotals();
+      renderStaff();
+    }, function () { offersLoaded = true; });
+  }
+  function prefill() {
+    if (savedName && !$('f-name').value) $('f-name').value = savedName;
+    if (savedPhone && !$('f-phone').value) $('f-phone').value = savedPhone;
+    if (savedName && !$('b-name').value) $('b-name').value = savedName;
+    if (savedPhone && !$('b-phone').value) $('b-phone').value = savedPhone;
+    $('f-optin').checked = savedOptIn;
+  }
+  function applyStatus() {
+    if (order) {
+      var n = myStatus.stages && myStatus.stages[order.id];
+      if (order.shared && typeof n === 'number') { order.stage = Math.min(2, n); renderTrack(); renderDone(); }
+    }
+    if (booking && booking.shared) {
+      var b = myStatus.bookings && myStatus.bookings[booking.id];
+      if (b) { booking.state = b; renderBkTrack(); renderBkDone(); }
+    }
+    afterData();
+  }
+  function afterData() {
+    restoreLive();
+    updateBadge();
+    renderWelcome();
+    refreshMine();
+  }
+  function restoreLive() {
+    if (!order) {
+      var cand = mergedOrders().filter(function (o) {
+        return !o.demo && dismissed.indexOf(o.id) < 0 && stageFor(o) < 3 && Date.now() - o.placedAt < STALE_MS;
+      })[0];
+      if (cand) {
+        order = Object.assign({}, cand, { stage: Math.min(2, stageFor(cand)), shared: true, stampMsg: '' });
+        renderTrack();
+      }
+    }
+    if (!booking) {
+      var bc = mergedBooks().filter(function (b) {
+        return !b.demo && dismissed.indexOf(b.id) < 0 && bkStateOf(b) !== 'declined' && bookingTime(b) > Date.now() - 3600000;
+      })[0];
+      if (bc) {
+        booking = { id: bc.id, name: bc.name, party: bc.party, date: bc.date, time: bc.time, shared: true, state: bkStateOf(bc) };
+        renderBkTrack();
+      }
+    }
+  }
+  function dismissId(id) {
+    dismissed = [id].concat(dismissed).slice(0, 30);
+    save('corner-cup-dismissed', dismissed);
+  }
+
+  // Welcome back: shown only to someone who has ordered here before
+  function renderWelcome() {
+    var os = mergedOrders(), el = $('welcome');
+    if (!os.length || (order && order.stage < 3)) { el.hidden = true; return; }
+    var o = os[0];
+    var sum = ((o.rec && o.rec.lines) || []).map(function (l) { return l.q + ' × ' + l.name; }).join(', ');
+    el.hidden = false;
+    el.innerHTML = '<p><strong>Welcome back' + (savedName ? ', ' + esc(savedName) : '') + '</strong>Last time: ' + esc(sum || o.token) + '</p>' +
+      '<button type="button" class="ghost" data-action="again">Order again</button>';
+  }
+
+  // Receipt
+  function stepsHTML(o, stage) {
+    var labels = ['Received', 'Preparing', o.type === 'dinein' ? 'At your table' : 'Ready to collect'];
+    return labels.map(function (l, i) {
+      var cls = (i < stage || stage >= 2) ? 'done' : (i === stage ? 'now' : '');
+      return '<li class="' + cls + '">' + esc(l) + '</li>';
+    }).join('');
+  }
+  function receiptHTML(o, stage) {
+    var r = o.rec || { lines: [], sub: o.total, reward: 0, combo: 0, promo: 0, gst: 0, total: o.total };
+    var lines = (r.lines || []).map(function (l) {
+      return '<li><span>' + esc(l.q + ' × ' + l.name) + (l.sub ? '<small>' + esc(l.sub) + '</small>' : '') + '</span><span>' + fmt(l.amt) + '</span></li>';
+    }).join('');
+    var tot = '<div><span>Subtotal</span><span>' + fmt(r.sub) + '</span></div>';
+    if (r.reward > 0) tot += '<div><span>Free coffee (stamp card)</span><span>−' + fmt(r.reward) + '</span></div>';
+    if (r.combo > 0) tot += '<div><span>Drink + bite combo</span><span>−' + fmt(r.combo) + '</span></div>';
+    if (r.promo > 0) tot += '<div><span>' + esc(r.code || 'Promo') + '</span><span>−' + fmt(r.promo) + '</span></div>';
+    tot += '<div><span>GST (5%)</span><span>' + fmt(r.gst) + '</span></div>';
+    tot += '<div class="grand"><span>Total</span><span>' + fmt(r.total) + '</span></div>';
+    return '<div class="receipt">' +
+      '<p class="r-brand">Corner Cup</p>' +
+      '<p class="r-sub">Receipt ' + esc(o.token) + '</p>' +
+      '<div class="r-meta"><span>Date</span><span>' + esc(stamp(o.placedAt)) + '</span></div>' +
+      '<div class="r-meta"><span>For</span><span>' + esc(o.name) + ' · ' + (o.type === 'dinein' ? 'Table ' + esc(o.table) : 'Pickup') + '</span></div>' +
+      '<ul class="r-lines">' + lines + '</ul>' +
+      '<div class="r-tot">' + tot + '</div>' +
+      '<p class="r-pay">' + (stage >= 3 ? 'Paid at the counter' : 'To pay at the counter') + '</p>' +
+      '<p class="r-foot">Show this receipt to the cashier. Thank you for visiting Corner Cup.</p></div>';
+  }
+
+  // Download a receipt as a PNG picture
+  function receiptPng(o, stage) {
+    var r = o.rec || { lines: [], sub: o.total, reward: 0, combo: 0, promo: 0, gst: 0, total: o.total };
+    var W = 640, P = 36, S = 2, INK = '#1B241F', MUTED = '#5B675F', LINE = '#C9D2C7';
+    var fam = '"DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif';
+    var c = document.createElement('canvas');
+    c.width = W; c.height = 100;
+    var ctx = c.getContext('2d');
+    function wrap(str, font, maxW) {
+      ctx.font = font;
+      var words = String(str).split(' '), out = [], cur = '';
+      words.forEach(function (w) {
+        var t = cur ? cur + ' ' + w : w;
+        if (ctx.measureText(t).width > maxW && cur) { out.push(cur); cur = w; } else cur = t;
+      });
+      if (cur) out.push(cur);
+      return out;
+    }
+    function paint(draw) {
+      var y = P;
+      function txt(s, x, font, color, align) {
+        if (!draw) return;
+        ctx.font = font; ctx.fillStyle = color; ctx.textAlign = align || 'left';
+        ctx.fillText(s, x, y);
+      }
+      function dash() {
+        if (!draw) return;
+        ctx.strokeStyle = LINE; ctx.lineWidth = 1; ctx.setLineDash([5, 4]);
+        ctx.beginPath(); ctx.moveTo(P, y); ctx.lineTo(W - P, y); ctx.stroke(); ctx.setLineDash([]);
+      }
+      function pair(left, right, font, color, gap) {
+        var f = font || ('400 15px ' + fam);
+        var lines = wrap(right, f, W - 2 * P - 150);
+        txt(left, P, f, color || MUTED);
+        lines.forEach(function (ln, i) { if (i) y += 20; txt(ln, W - P, f, color || INK, 'right'); });
+        y += gap || 24;
+      }
+      y += 26; txt('Corner Cup', W / 2, '800 28px ' + fam, INK, 'center');
+      y += 24; txt('Receipt ' + o.token, W / 2, '400 15px ' + fam, MUTED, 'center');
+      y += 22; dash(); y += 26;
+      pair('Date', stamp(o.placedAt));
+      pair('For', o.name + ' · ' + (o.type === 'dinein' ? 'Table ' + o.table : 'Pickup'));
+      y += 4; dash(); y += 28;
+      (r.lines || []).forEach(function (l) {
+        var f = '500 16px ' + fam;
+        var lines = wrap(l.q + ' × ' + l.name, f, W - 2 * P - 110);
+        txt(fmt(l.amt), W - P, f, INK, 'right');
+        lines.forEach(function (ln, i) { if (i) y += 21; txt(ln, P, f, INK); });
+        if (l.sub) {
+          wrap(l.sub, '400 13px ' + fam, W - 2 * P - 110).forEach(function (ln) { y += 18; txt(ln, P, '400 13px ' + fam, MUTED); });
+        }
+        y += 28;
+      });
+      dash(); y += 28;
+      pair('Subtotal', fmt(r.sub));
+      if (r.reward > 0) pair('Free coffee (stamp card)', '−' + fmt(r.reward));
+      if (r.combo > 0) pair('Drink + bite combo', '−' + fmt(r.combo));
+      if (r.promo > 0) pair(r.code || 'Promo', '−' + fmt(r.promo));
+      pair('GST (5%)', fmt(r.gst));
+      y += 2; pair('Total', fmt(r.total), '700 20px ' + fam, INK, 34);
+      dash(); y += 28;
+      txt(stage >= 3 ? 'Paid at the counter' : 'To pay at the counter', P, '700 15px ' + fam, INK);
+      y += 30;
+      wrap('Show this receipt to the cashier. Thank you for visiting Corner Cup.', '400 13px ' + fam, W - 2 * P).forEach(function (ln) {
+        txt(ln, W / 2, '400 13px ' + fam, MUTED, 'center'); y += 18;
+      });
+      return y + P - 8;
+    }
+    var fonts = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
+    return fonts.then(function () {
+      var H = Math.ceil(paint(false));
+      c.width = W * S; c.height = H * S;
+      ctx = c.getContext('2d');
+      ctx.scale(S, S);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, W, H);
+      paint(true);
+      return new Promise(function (resolve, reject) {
+        c.toBlob(function (b) { if (b) resolve(b); else reject(new Error('blob')); }, 'image/png');
+      });
+    });
+  }
+  function downloadReceipt(o, stage, noteId) {
+    var note = $(noteId);
+    if (!dl) { note.textContent = 'Saving is not available here. Take a screenshot of the receipt instead.'; return; }
+    note.textContent = 'Preparing your receipt...';
+    receiptPng(o, stage).then(function (blob) {
+      return dl.save({ filename: 'CornerCup-receipt-' + o.token + '.png', data: blob });
+    }).then(function () {
+      note.textContent = 'Receipt saved.';
+    }, function (err) {
+      var code = err && err.code;
+      note.textContent = code === 'declined' ? '' : 'Could not save the receipt here. Take a screenshot of it instead.';
+    });
+  }
+
+  // Order tracker and confirmation
+  function renderTrack() {
+    if (!order) { $('track').hidden = true; return; }
+    $('track').hidden = false;
+    $('track-main').innerHTML = '<span>Order <strong>' + esc(order.token) + '</strong></span><span>' + esc(stageName(order, order.stage)) + '</span>';
+    $('track-x').hidden = order.stage < 2;
+  }
+  function renderDone() {
+    if (!order) return;
+    $('done-token').textContent = order.token;
+    $('done-eta').textContent = order.stage < 2 ? 'Ready in about ' + order.eta + ' min' : stageName(order, 2);
+    $('done-meta').textContent = (order.type === 'dinein' ? 'Table ' + order.table : 'Pickup for ' + order.name) + ' · ' + PAY.counter;
+    $('done-steps').innerHTML = stepsHTML(order, order.stage);
+    $('done-live').textContent = 'Order status: ' + stageName(order, order.stage);
+    $('done-receipt').innerHTML = receiptHTML(order, order.stage);
+    renderRate('done-rate', order, order.stage);
+    $('done-stamp').textContent = order.stampMsg || '';
+    $('done-stamp').hidden = !order.stampMsg;
+    $('done-note').textContent = order.shared
+      ? 'Sent to the cafe. This updates when the team moves your order along.'
+      : 'Demo only: this order was not sent to the cafe, and the status runs at demo speed.';
+  }
+  function setStage(s) {
+    if (!order) return;
+    order.stage = s;
+    renderTrack();
+    renderDone();
+    updateBadge();
+    refreshMine();
+  }
+  function clearTimers() { timers.forEach(clearTimeout); timers = []; }
+
+  // My orders
+  function updateBadge() {
+    var os = mergedOrders(), n = os.filter(isLive).length;
+    $('mine-btn').hidden = !(os.length || mergedBooks().length);
+    $('mine-badge').hidden = n === 0;
+    $('mine-badge').textContent = n;
+  }
+  function orderRow(o) {
+    var s = stageFor(o), live = s < 3;
+    var lines = (o.rec && o.rec.lines) || [];
+    var sum = lines.map(function (l) { return l.q + ' × ' + l.name; }).join(', ') || 'Order';
+    return '<button type="button" class="mrow' + (live ? ' live' : '') + '" data-action="receipt" data-id="' + esc(o.id) + '">' +
+      '<span class="mi"><strong>' + esc(o.token) + '</strong><small>' + esc(stamp(o.placedAt) + ' · ' + sum) + '</small></span>' +
+      '<span class="mr"><span class="pill s' + s + '">' + esc(stageName(o, s)) + '</span><span>' + fmt(o.total) + '</span></span></button>';
+  }
+  function bookRow(b) {
+    var st = bkStateOf(b);
+    var pill = st === 'confirmed' ? '<span class="pill s2">Confirmed</span>' : st === 'declined' ? '<span class="pill bad">Declined</span>' : st === 'demo' ? '<span class="pill s3">Demo</span>' : '<span class="pill s1">Waiting</span>';
+    return '<div class="mrow"><span class="mi"><strong>Table for ' + b.party + '</strong><small>' + esc(dateLabel(b.date) + ', ' + t12(b.time) + ' · ' + b.name) + '</small></span>' +
+      '<span class="mr">' + pill + '</span></div>';
+  }
+  function section(title, rows) { return '<div class="mine-sec"><h3>' + title + '</h3>' + rows.join('') + '</div>'; }
+  function renderMine() {
+    var os = mergedOrders(), bs = mergedBooks();
+    var live = os.filter(isLive), past = os.filter(function (o) { return !isLive(o); });
+    var h = '';
+    if (live.length) h += section('Live now', live.map(orderRow));
+    if (bs.length) h += section('Table requests', bs.map(bookRow));
+    if (past.length) h += section('Past orders', past.map(orderRow));
+    if (!h) h = '<p class="empty">Nothing yet. Your orders, receipts and table requests will show up here.</p>';
+    $('mine-body').innerHTML = h;
+  }
+  function renderMineReceipt() {
+    var o = mergedOrders().filter(function (x) { return x.id === mineSel; })[0];
+    if (!o) { showMineList(); return; }
+    var s = stageFor(o);
+    $('mr-token').textContent = o.token;
+    $('mr-status').textContent = stageName(o, s);
+    $('mr-steps').innerHTML = stepsHTML(o, s);
+    $('mr-receipt').innerHTML = receiptHTML(o, s);
+    renderRate('mr-rate', o, s);
+  }
+  function showMineList() {
+    mineSel = null;
+    $('mine-list-view').hidden = false;
+    $('mine-rcpt-view').hidden = true;
+    renderMine();
+  }
+  function refreshMine() {
+    if ($('scrim4').hidden) return;
+    if (mineSel) renderMineReceipt(); else renderMine();
+  }
+  function openMine() {
+    opener = document.activeElement;
+    showMineList();
+    $('scrim4').hidden = false;
+    lockOn();
+    $('sheet4').scrollTop = 0;
+    $('sheet4').focus();
+  }
+  function closeMine() {
+    $('scrim4').hidden = true;
+    lockOff();
+    if (opener && opener.focus && document.contains(opener) && !opener.hidden) opener.focus();
+    opener = null;
+  }
+  function reorder(o) {
+    var added = 0;
+    ((o.rec && o.rec.lines) || []).forEach(function (l) {
+      var it = byId[l.id];
+      if (!it || cfgOf(l.id).soldOut) return;
+      var line = { id: l.id, size: it.custom ? l.size : null, milk: it.custom === 'milk' ? l.milk : null, sugar: it.custom ? l.sugar : null, qty: l.q };
+      if (it.custom && !(find(SIZES, line.size) && find(SUGARS, line.sugar) && (it.custom !== 'milk' || find(MILKS, line.milk)))) return;
+      var key = keyOf(l.id, line);
+      if (cart[key]) cart[key].qty = Math.min(20, cart[key].qty + l.q); else cart[key] = line;
+      added++;
+    });
+    updateAll();
+    if ($('scrim4').hidden === false) closeMine();
+    if (added) openSheet('cart');
+  }
+
+  // Table booking
+  var BK_TEXT = { pending: 'Waiting for the cafe', confirmed: 'Table confirmed', declined: 'Cannot seat you then' };
+  (function () {
+    var s = '';
+    for (var g = 1; g <= 10; g++) s += '<option value="' + g + '"' + (g === 2 ? ' selected' : '') + '>' + g + (g === 1 ? ' guest' : ' guests') + '</option>';
+    $('b-party').innerHTML = s;
+    var t = '<option value="">Choose</option>';
+    for (var m = FIRST_SLOT; m <= LAST_SLOT; m += 30) {
+      var hh = Math.floor(m / 60), mm = m % 60;
+      var v = (hh < 10 ? '0' : '') + hh + ':' + (mm ? '30' : '00');
+      t += '<option value="' + v + '">' + t12(v) + '</option>';
+    }
+    $('b-time').innerHTML = t;
+    var today = new Date(), far = new Date(); far.setDate(far.getDate() + 60);
+    $('b-date').min = ymd(today);
+    $('b-date').max = ymd(far);
+  })();
+  function bkWhen(b) { return dateLabel(b.date) + ', ' + t12(b.time); }
+  function renderBkTrack() {
+    if (!booking) { $('bk-track').hidden = true; return; }
+    $('bk-track').hidden = false;
+    $('bk-track-main').innerHTML = '<span>Table for <strong>' + booking.party + '</strong> · ' + esc(bkWhen(booking)) + '</span><span>' + esc(booking.shared ? BK_TEXT[booking.state] : 'Demo request') + '</span>';
+    $('bk-track-x').hidden = booking.state === 'pending' && booking.shared;
+  }
+  function renderBkDone() {
+    if (!booking) return;
+    var st = booking.shared ? BK_TEXT[booking.state] : 'Demo request';
+    $('bk-state').textContent = st;
+    $('bk-when').textContent = bkWhen(booking);
+    $('bk-who').textContent = booking.name + ' · ' + booking.party + (booking.party === 1 ? ' guest' : ' guests');
+    $('bk-live').textContent = 'Table request status: ' + st;
+    $('bk-msg').textContent = !booking.shared
+      ? 'Demo only: this request was not sent to the cafe.'
+      : booking.state === 'confirmed' ? 'See you then. Show this screen at the door if asked.'
+      : booking.state === 'declined' ? 'Please try another time or call the cafe.'
+      : 'Sent to the cafe. This page updates when they reply.';
+  }
+  function openBook(view) {
+    opener = document.activeElement;
+    var done = view === 'done' && booking;
+    $('bk-form-view').hidden = !!done;
+    $('bk-done-view').hidden = !done;
+    if (done) renderBkDone();
+    $('scrim3').hidden = false;
+    lockOn();
+    $('sheet3').scrollTop = 0;
+    $('sheet3').focus();
+  }
+  function closeBook() {
+    $('scrim3').hidden = true;
+    lockOff();
+    if (opener && opener.focus && document.contains(opener) && !opener.hidden) opener.focus();
+    opener = null;
+  }
+  function bkErr(inputId, errId, msg) {
+    var el = $(errId);
+    if (msg) el.textContent = msg;
+    el.hidden = !msg;
+    if (msg) $(inputId).setAttribute('aria-invalid', 'true'); else $(inputId).removeAttribute('aria-invalid');
+  }
+  ['b-name', 'b-date', 'b-time', 'b-phone'].forEach(function (id) {
+    var ev = (id === 'b-name' || id === 'b-phone') ? 'input' : 'change';
+    $(id).addEventListener(ev, function () {
+      bkErr(id, id === 'b-name' ? 'err-bname' : id === 'b-date' ? 'err-bdate' : id === 'b-time' ? 'err-btime' : 'err-bphone', '');
+    });
+  });
+  wirePhone('b-phone');
+  $('bk-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var name = $('b-name').value.trim(), date = $('b-date').value, time = $('b-time').value;
+    var phone = cleanPhone($('b-phone').value);
+    var eName = name ? '' : 'Enter a name for the booking.';
+    var eDate = date ? '' : 'Choose a date.';
+    var eTime = time ? '' : 'Choose a time.';
+    var ePhone = validatePhone(phone);
+    if (!eDate && !eTime && bookingTime({ date: date, time: time }) < Date.now()) eTime = 'That time has already passed. Choose a later one.';
+    bkErr('b-name', 'err-bname', eName);
+    bkErr('b-date', 'err-bdate', eDate);
+    bkErr('b-time', 'err-btime', eTime);
+    bkErr('b-phone', 'err-bphone', ePhone);
+    if (eName) { $('b-name').focus(); return; }
+    if (eDate) { $('b-date').focus(); return; }
+    if (eTime) { $('b-time').focus(); return; }
+    if (ePhone) { $('b-phone').focus(); return; }
+    var b = {
+      id: newId('b'), name: name, phone: phone, party: +$('b-party').value,
+      date: date, time: time, note: $('b-note').value.trim(), placedAt: Date.now()
+    };
+    savedPhone = phone; savedName = name;
+    save('corner-cup-phone', phone); save('corner-cup-name', name);
+    $('bk-submit').disabled = true;
+    share('bookings', b).then(function (ok) {
+      if (ok) upsertCustomer({ phone: phone, name: name });
+      $('bk-submit').disabled = false;
+      localBooks = [Object.assign({}, b, { demo: !ok })].concat(localBooks).slice(0, 8);
+      save('corner-cup-books', localBooks);
+      booking = { id: b.id, name: b.name, party: b.party, date: b.date, time: b.time, shared: ok, state: 'pending' };
+      if (ok && myStatus.bookings && myStatus.bookings[b.id]) booking.state = myStatus.bookings[b.id];
+      $('b-date').value = ''; $('b-time').value = ''; $('b-note').value = '';
+      $('b-party').value = '2';
+      renderBkTrack();
+      updateBadge();
+      refreshMine();
+      $('bk-form-view').hidden = true;
+      $('bk-done-view').hidden = false;
+      renderBkDone();
+      $('sheet3').scrollTop = 0;
+      $('sheet3').focus();
+    });
+  });
+
+  // Events
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-action]');
+    if (btn) {
+      var a = btn.getAttribute('data-action'), key = btn.getAttribute('data-key'), id = btn.getAttribute('data-id');
+      if (a === 'inc' || a === 'dec') {
+        var scope = btn.closest('#lines') || $('menu');
+        if (a === 'inc' && !cart[key] && byId[key] && !byId[key].custom) addLine(key, {});
+        else changeKey(key, a === 'inc' ? 1 : -1);
+        var next = scope.querySelector('[data-action="' + a + '"][data-key="' + key + '"]') || scope.querySelector('[data-action="inc"][data-key="' + key + '"]');
+        if (next) next.focus();
+        else if (!$('scrim').hidden) $('sheet').focus();
+      } else if (a === 'custom') {
+        openOpts(id);
+      } else if (a === 'closeopts') {
+        closeOpts();
+      } else if (a === 'open') {
+        openSheet('cart');
+      } else if (a === 'close') {
+        closeSheet();
+      } else if (a === 'track') {
+        openSheet('done');
+      } else if (a === 'dismiss') {
+        if (order) dismissId(order.id);
+        clearTimers();
+        order = null;
+        renderTrack();
+        updateBadge();
+        renderWelcome();
+      } else if (a === 'book') {
+        openBook('form');
+      } else if (a === 'closebook') {
+        closeBook();
+      } else if (a === 'bktrack') {
+        openBook('done');
+      } else if (a === 'bkdismiss') {
+        if (booking) dismissId(booking.id);
+        booking = null;
+        renderBkTrack();
+      } else if (a === 'mine') {
+        if (!$('scrim').hidden) { $('scrim').hidden = true; lockOff(); opener = null; }
+        openMine();
+      } else if (a === 'closemine') {
+        closeMine();
+      } else if (a === 'minelist') {
+        showMineList();
+      } else if (a === 'receipt') {
+        mineSel = id;
+        $('mine-list-view').hidden = true;
+        $('mine-rcpt-view').hidden = false;
+        renderMineReceipt();
+        $('sheet4').scrollTop = 0;
+      } else if (a === 'reorder') {
+        var ro = mergedOrders().filter(function (x) { return x.id === mineSel; })[0];
+        if (ro) reorder(ro);
+      } else if (a === 'dlrcpt') {
+        if (order) downloadReceipt(order, order.stage, 'done-dl');
+      } else if (a === 'dlmine') {
+        var dm = mergedOrders().filter(function (x) { return x.id === mineSel; })[0];
+        if (dm) downloadReceipt(dm, stageFor(dm), 'mr-dl');
+      } else if (a === 'again') {
+        var last = mergedOrders()[0];
+        if (last) reorder(last);
+      } else if (a === 'applypromo') {
+        applyPromo();
+      } else if (a === 'fav') {
+        if (favs[id]) delete favs[id]; else favs[id] = true;
+        save('corner-cup-favs', favs);
+        renderMenu();
+        var f = document.querySelector('[data-action="fav"][data-id="' + id + '"]');
+        if (f) f.focus();
+      } else if (a === 'tog') {
+        var t = btn.getAttribute('data-t');
+        if (t === 'veg') vegOnly = !vegOnly; else favOnly = !favOnly;
+        btn.setAttribute('aria-pressed', String(t === 'veg' ? vegOnly : favOnly));
+        renderMenu();
+      } else if (a === 'clearf') {
+        q = ''; vegOnly = false; favOnly = false;
+        $('q').value = '';
+        Array.prototype.forEach.call(document.querySelectorAll('[data-action="tog"]'), function (b) { b.setAttribute('aria-pressed', 'false'); });
+        renderMenu();
+      } else if (a === 'goto') {
+        var i = +btn.getAttribute('data-i');
+        setActive(i);
+        var sec = $('cat-' + i);
+        if (sec) sec.scrollIntoView();
+      } else if (a === 'stab') {
+        staffTab = btn.getAttribute('data-t');
+        renderStaff(true);
+      } else if (a === 'sfilter') {
+        var ft = btn.getAttribute('data-t');
+        if (staffTab === 'orders') ordersFilter = ft;
+        else if (staffTab === 'bookings') bookFilter = ft;
+        else segFilter = ft;
+        renderStaff(true);
+      } else if (a === 'advance') {
+        staffWrite(btn.getAttribute('data-uid'), id, 'stages', +btn.getAttribute('data-n'));
+      } else if (a === 'reply') {
+        staffWrite(btn.getAttribute('data-uid'), id, 'bookings', btn.getAttribute('data-n'));
+      } else if (a === 'slock') {
+        firebase.auth().signOut().then(function () { location.reload(); });
+      } else if (a === 'spass') {
+        staffAuth = 'change';
+        gateRender();
+      } else if (a === 'gcancel') {
+        staffAuth = 'open';
+        gateRender();
+      } else if (a === 'wasent') {
+        var ph = btn.getAttribute('data-phone');
+        sentMap[ph] = Date.now();
+        save('cc-sent', sentMap);
+        setTimeout(function () { renderStaff(true); }, 600);
+      } else if (a === 'mreset') {
+        msgText = defaultTemplate();
+        save('cc-msg', msgText);
+        renderStaff(true);
+      } else if (a === 'offtoggle') {
+        offerToggle(id);
+      } else if (a === 'offdel') {
+        if (delArm === id) { delArm = ''; offerDelete(id); } else { delArm = id; renderStaff(true); }
+      } else if (a === 'lang') {
+        setLang(lang === 'hi' ? 'en' : 'hi');
+      } else if (a === 'call') {
+        callAction(id);
+      } else if (a === 'notable') {
+        tableNo = '';
+        save('cc-table', null);
+        $('f-table').value = '';
+        if (location.hash.indexOf('#table-') === 0) location.hash = 'home';
+        renderTablebar();
+      } else if (a === 'rate') {
+        var rd = rateDraft[id] || (rateDraft[id] = { stars: 0, text: '' });
+        rd.stars = +btn.getAttribute('data-n');
+        rd.err = false;
+        rerenderRates();
+        var rb = document.querySelector('[data-action="rate"][data-id="' + id + '"][data-n="' + rd.stars + '"]');
+        if (rb) rb.focus();
+      } else if (a === 'sendrate') {
+        sendRating(id);
+      } else if (a === 'ssound') {
+        soundOn = !soundOn;
+        save('cc-sound', soundOn);
+        $('s-sound').textContent = 'Sound: ' + (soundOn ? 'on' : 'off');
+        if (soundOn) beep();
+      } else if (a === 'calldone') {
+        if (db) db.doc('calls/' + btn.getAttribute('data-uid')).delete().then(function () {}, function () { staffErr = 'error'; renderStaff(true); });
+      } else if (a === 'msold') {
+        menuWrite(id, { soldOut: !cfgOf(id).soldOut }).then(function () { renderStaff(true); });
+      } else if (a === 'mimgdel') {
+        menuWrite(id, { img: '', imgId: '' }).then(function () { renderStaff(true); });
+      } else if (a === 'copylink') {
+        var link = $('q-link') ? $('q-link').value : qrLink;
+        var done = function () { qrNote = 'Link copied.'; renderStaff(true); };
+        var fail = function () { qrNote = 'Could not copy. Select the link and copy it by hand.'; renderStaff(true); };
+        try { navigator.clipboard.writeText(link).then(done, fail); } catch (err) { fail(); }
+      }
+      return;
+    }
+    if (e.target === $('scrim')) closeSheet();
+    if (e.target === $('scrim2')) closeOpts();
+    if (e.target === $('scrim3')) closeBook();
+    if (e.target === $('scrim4')) closeMine();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    if (!$('scrim2').hidden) closeOpts();
+    else if (!$('scrim4').hidden) closeMine();
+    else if (!$('scrim3').hidden) closeBook();
+    else if (!$('scrim').hidden) closeSheet();
+  });
+  $('q').addEventListener('input', function () {
+    q = $('q').value.trim().toLowerCase();
+    renderMenu();
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[name="type"]'), function (r) {
+    r.addEventListener('change', function () {
+      type = r.value;
+      $('table-field').hidden = type !== 'dinein';
+    });
+  });
+
+  function setError(inputId, errId, msg) {
+    var el = $(errId);
+    if (msg) el.textContent = msg;
+    el.hidden = !msg;
+    if (msg) $(inputId).setAttribute('aria-invalid', 'true'); else $(inputId).removeAttribute('aria-invalid');
+  }
+  wirePhone('f-phone');
+  ['f-name', 'f-table', 'f-phone'].forEach(function (id) {
+    $(id).addEventListener('input', function () {
+      setError(id, id === 'f-name' ? 'err-name' : id === 'f-table' ? 'err-table' : 'err-phone', '');
+    });
+  });
+
+  $('form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var t = totals();
+    if (t.n === 0) return;
+    var name = $('f-name').value.trim();
+    var table = $('f-table').value.trim();
+    var phone = cleanPhone($('f-phone').value);
+    var eName = name ? '' : 'Enter a name so we can call out your order.';
+    var eTable = type === 'dinein' && !table ? 'Enter the table number printed on your table.' : '';
+    var ePhone = validatePhone(phone);
+    setError('f-name', 'err-name', eName);
+    setError('f-phone', 'err-phone', ePhone);
+    setError('f-table', 'err-table', eTable);
+    if (eName) { $('f-name').focus(); return; }
+    if (ePhone) { $('f-phone').focus(); return; }
+    if (eTable) { $('f-table').focus(); return; }
+
+    var gone = Object.keys(cart).filter(function (k) { return cfgOf(cart[k].id).soldOut; });
+    if (gone.length) {
+      goneNote = 'Sold out right now: ' + gone.map(function (k) { return byId[cart[k].id].name; }).join(', ') + '. Remove it to continue.';
+      renderGone();
+      return;
+    }
+    goneNote = '';
+    renderGone();
+    var optIn = $('f-optin').checked;
+    savedPhone = phone; savedName = name; savedOptIn = optIn;
+    save('corner-cup-phone', phone); save('corner-cup-name', name); save('corner-cup-optin', optIn);
+
+    var lines = Object.keys(cart).map(function (k) {
+      var l = cart[k], it = byId[l.id];
+      return { id: l.id, q: l.qty, size: l.size, milk: l.milk, sugar: l.sugar, name: it.name, sub: optLabel(l.id, l), amt: unitPrice(l.id, l) * l.qty };
+    });
+    var rec = { lines: lines, sub: t.sub, reward: t.reward, combo: t.combo, promo: t.promo, code: t.promo > 0 ? promoCode : '', gst: t.gst, total: t.total };
+    var items = lines.map(function (l) { return { t: l.q + ' × ' + l.name, sub: l.sub }; });
+
+    var stampMsg, newStamps;
+    if (t.reward > 0) { newStamps = 0; stampMsg = 'Free coffee used. Your stamp card starts again from zero.'; }
+    else {
+      newStamps = Math.min(STAMPS_FULL, stamps + 1);
+      stampMsg = newStamps >= STAMPS_FULL
+        ? 'Card full. Your next order gets a free coffee.'
+        : 'Stamp added: ' + newStamps + ' of ' + STAMPS_FULL + '. Stamps never expire.';
+    }
+
+    var id = newId('o');
+    var payload = {
+      id: id, token: 'CC-' + (100 + Math.floor(Math.random() * 900)), type: type, table: table, name: name, phone: phone, pay: 'counter',
+      note: $('f-note').value.trim(), eta: Math.min(25, 6 + 2 * t.n), placedAt: Date.now(), items: items, total: t.total, rec: rec
+    };
+
+    $('place').disabled = true;
+    share('orders', payload).then(function (ok) {
+      if (ok) upsertCustomer({ phone: phone, name: name, optIn: optIn, stamps: newStamps, order: { total: t.total, free: t.reward > 0 } });
+      stamps = newStamps;
+      save('corner-cup-stamps', stamps);
+      localOrders = [Object.assign({}, payload, { demo: !ok })].concat(localOrders).slice(0, 8);
+      save('corner-cup-orders', localOrders);
+      clearTimers();
+      order = Object.assign({}, payload, { stage: 0, shared: ok, stampMsg: stampMsg });
+      if (ok) {
+        var n = myStatus.stages && myStatus.stages[id];
+        if (typeof n === 'number') order.stage = Math.min(2, n);
+      } else {
+        timers = [setTimeout(function () { setStage(1); }, 5000), setTimeout(function () { setStage(2); }, 14000)];
+      }
+      cart = {};
+      promoCode = ''; promoErr = '';
+      $('f-promo').value = '';
+      $('f-note').value = '';
+      updateAll();
+      renderStamps();
+      renderTrack();
+      updateBadge();
+      renderWelcome();
+      $('view-cart').hidden = true;
+      $('view-done').hidden = false;
+      renderDone();
+      $('sheet').scrollTop = 0;
+      $('sheet').focus();
+    });
+  });
+
+  // Staff screen, behind a password kept (salted and hashed) in config/staff
+  var staffData = { orders: [], bookings: [], status: {}, customers: [], calls: [], feedback: [] };
+  var staffLoaded = { orders: false, bookings: false, status: false, customers: false, calls: false, feedback: false };
+  var seenOrders = {}, callSig = {}, menuNote = '', actx = null;
+  var tableCount = Math.min(40, Math.max(1, +load('cc-tables', 10) || 10));
+  var staffSubs = null, staffSlow = false, staffErr = '', staffBusy = false, staffTimer = null, staffDirty = false;
+  var staffTab = 'orders', ordersFilter = 'active', bookFilter = 'pending', segFilter = 'due';
+  var staffAuth = 'checking', cfg = null, cfgAsked = false, tries = 0, blockedUntil = 0;
+  var sentMap = load('cc-sent', {});
+  if (!sentMap || typeof sentMap !== 'object') sentMap = {};
+  var msgOffer = '', msgText = String(load('cc-msg', '') || '');
+  var qrLink = String(load('cc-link', '') || '') || DEFAULT_LINK, qrNote = '';
+  var delArm = '', offerNote = '';
+
+  function hex(buf) {
+    return Array.prototype.map.call(new Uint8Array(buf), function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+  }
+  function hasCrypto() { return !!(window.crypto && window.crypto.subtle && window.TextEncoder); }
+  function newSalt() { var a = new Uint8Array(16); window.crypto.getRandomValues(a); return hex(a.buffer); }
+  function hashPw(pw, saltHex) {
+    var salt = new Uint8Array(saltHex.match(/../g).map(function (h) { return parseInt(h, 16); }));
+    return window.crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveBits']).then(function (k) {
+      return window.crypto.subtle.deriveBits({ name: 'PBKDF2', salt: salt, iterations: 100000, hash: 'SHA-256' }, k, 256);
+    }).then(hex);
+  }
+  function loadCfg() {
+    cfgAsked = true;
+    if (!db) { staffAuth = 'error'; gateRender(); return; }
+    staffAuth = isStaff ? 'open' : 'locked';
+    if (isStaff) openStaff(); else gateRender();
+  }
+  function gateField(id, label, auto) {
+    return '<div class="field"><label class="fl" for="' + id + '">' + label + '</label><input id="' + id + '" type="password" autocomplete="' + auto + '"></div>';
+  }
+  function gateRender() {
+    var g = $('staff-gate'), open = staffAuth === 'open';
+    $('staff-body').hidden = !open;
+    $('s-lock').hidden = !open;
+    $('s-pass').hidden = true;
+    $('s-sound').hidden = !open;
+    $('s-sound').textContent = 'Sound: ' + (soundOn ? 'on' : 'off');
+    if (open) { g.innerHTML = ''; renderStaff(true); return; }
+    var h = '';
+    if (staffAuth === 'checking') h = '<p class="snote" role="status">Checking...</p>';
+    else if (staffAuth === 'nocrypto') h = '<p class="snote">This browser cannot set a staff password. Open the page in an up to date browser.</p>';
+    else if (staffAuth === 'error') h = '<p class="snote">Could not connect. Check your internet, and check that the Firebase settings in the page are correct.</p>';
+    else {
+      var title, intro, fields, btn;
+      if (staffAuth === 'setup') {
+        title = 'Set a staff password'; intro = 'Anyone opening this screen will need it. Pick something your team can remember.';
+        fields = gateField('g-pw', 'New password', 'new-password') + gateField('g-pw2', 'Repeat password', 'new-password'); btn = 'Save password';
+      } else if (staffAuth === 'change') {
+        title = 'Change password'; intro = 'Enter the current password, then the new one.';
+        fields = gateField('g-cur', 'Current password', 'current-password') + gateField('g-pw', 'New password', 'new-password') + gateField('g-pw2', 'Repeat new password', 'new-password'); btn = 'Save password';
+      } else {
+        title = 'Staff login'; intro = 'Sign in with your staff email and password.';
+        fields = '<div class="field"><label class="fl" for="g-email">Email</label><input id="g-email" type="email" autocomplete="username"></div>' + gateField('g-pw', 'Password', 'current-password'); btn = 'Sign in';
+      }
+      h = '<form class="gate" id="gate-form" novalidate><h2>' + title + '</h2><p class="fine">' + intro + '</p>' + fields +
+        '<p class="err" id="g-err" role="alert" hidden></p><button type="submit" class="place" id="g-btn">' + btn + '</button>' +
+        (staffAuth === 'change' ? '<button type="button" class="place alt" data-action="gcancel">Cancel</button>' : '') + '</form>';
+    }
+    g.innerHTML = h;
+    var first = g.querySelector('input');
+    if (first) first.focus();
+  }
+  function gateError(msg) {
+    var el = $('g-err');
+    if (!el) return;
+    el.textContent = msg;
+    el.hidden = !msg;
+    var b = $('g-btn');
+    if (b) b.disabled = false;
+  }
+  function openStaff() {
+    staffAuth = 'open';
+    tries = 0;
+    startStaff();
+    gateRender();
+  }
+  function savePassword(pw) {
+    var salt = newSalt();
+    return hashPw(pw, salt).then(function (h) {
+      return db.doc('config/staff').set({ salt: salt, hash: h, updatedAt: Date.now() }).then(function () {
+        cfg = { salt: salt, hash: h };
+      });
+    });
+  }
+
+  function startStaff() {
+    if (staffSubs || !db) return;
+    staffSubs = [];
+    function sub(name, fn) {
+      staffSubs.push(db.collection(name).onSnapshot(function (snap) {
+        fn(snap);
+        staffLoaded[name] = true;
+        renderStaff();
+      }, function (err) {
+        staffErr = (err && err.code) || 'error';
+        renderStaff();
+      }));
+    }
+    function flat(snap, field) {
+      var out = [];
+      snap.docs.forEach(function (d) {
+        var x = d.data() || {};
+        (x[field] || []).forEach(function (o) { out.push(Object.assign({}, o, { uid: d.id })); });
+      });
+      return out;
+    }
+    sub('orders', function (snap) {
+      staffData.orders = flat(snap, 'orders');
+      var fresh = false;
+      staffData.orders.forEach(function (o) {
+        if (!seenOrders[o.id]) { seenOrders[o.id] = 1; if (staffLoaded.orders) fresh = true; }
+      });
+      if (fresh) beep();
+    });
+    sub('calls', function (snap) {
+      var list = snap.docs.map(function (d) { return Object.assign({ uid: d.id }, d.data() || {}); }), fresh = false;
+      list.forEach(function (c) {
+        var sig = Object.keys(c.reqs || {}).map(function (k) { return k + c.reqs[k]; }).join(',');
+        if (sig && callSig[c.uid] !== sig && staffLoaded.calls) fresh = true;
+        callSig[c.uid] = sig;
+      });
+      staffData.calls = list;
+      if (fresh) beep();
+    });
+    sub('feedback', function (snap) { staffData.feedback = flat(snap, 'feedback'); });
+    sub('bookings', function (snap) { staffData.bookings = flat(snap, 'bookings'); });
+    sub('status', function (snap) {
+      var m = {};
+      snap.docs.forEach(function (d) { m[d.id] = d.data() || {}; });
+      staffData.status = m;
+    });
+    sub('customers', function (snap) { staffData.customers = snap.docs.map(function (d) { return d.data() || {}; }); });
+    staffTimer = setTimeout(function () {
+      if (!(staffLoaded.orders && staffLoaded.bookings && staffLoaded.status && staffLoaded.customers)) { staffSlow = true; renderStaff(); }
+    }, 10000);
+  }
+  function staffStage(o) {
+    var s = staffData.status[o.uid];
+    var n = s && s.stages && s.stages[o.id];
+    return typeof n === 'number' ? n : 0;
+  }
+  function staffBookState(b) {
+    var s = staffData.status[b.uid];
+    return (s && s.bookings && s.bookings[b.id]) || 'pending';
+  }
+  function staffWrite(userId, itemId, field, value) {
+    if (!db || staffBusy || !userId || !itemId) return;
+    staffBusy = true;
+    renderStaff(true);
+    var ref = db.doc('status/' + userId);
+    var patch = {};
+    patch[field] = {};
+    patch[field][itemId] = value;
+    ref.get().then(function (s) {
+      return s.exists ? ref.update(patch) : ref.set(patch);
+    }).then(function () { staffErr = ''; }, function (err) {
+      staffErr = (err && err.code) || 'error';
+    }).then(function () {
+      staffBusy = false;
+      renderStaff(true);
+    });
+  }
+
+  // Customers and WhatsApp messages
+  function groupCustomers() {
+    var m = {};
+    staffData.customers.forEach(function (c) {
+      var k = c.phone || c.uid;
+      var g = m[k];
+      if (!g) g = m[k] = { phone: c.phone, name: c.name, orders: 0, spent: 0, stamps: 0, lastAt: 0, optIn: false, free: 0, _t: 0 };
+      g.orders += c.orders || 0;
+      g.spent += c.spent || 0;
+      g.free += c.freeCoffees || 0;
+      g.stamps = Math.max(g.stamps, c.stamps || 0);
+      g.lastAt = Math.max(g.lastAt, c.lastAt || 0);
+      var t = c.lastAt || c.firstAt || 0;
+      if (t >= g._t) { g._t = t; g.name = c.name || g.name; g.optIn = !!c.optIn; }
+    });
+    return Object.keys(m).map(function (k) { return m[k]; });
+  }
+  function daysAgo(ms) { return Math.floor((Date.now() - ms) / DAY); }
+  function agoText(c) {
+    if (!c.lastAt) return 'No order yet';
+    var d = daysAgo(c.lastAt);
+    return 'Last order ' + (d === 0 ? 'today' : d === 1 ? 'yesterday' : d + ' days ago') + ' (' + shortDate(c.lastAt) + ')';
+  }
+  function activeOffers() {
+    return offerList.filter(function (o) { return o.active !== false && (!o.expires || o.expires > Date.now()); });
+  }
+  function defaultTemplate() {
+    return "Hi {name}, it's Corner Cup.\nYou have {stamps} of " + STAMPS_FULL + " stamps and they never expire. {leftLine}\n{offerLine}Order here: {link}";
+  }
+  function fillMsg(c) {
+    var tpl = msgText || defaultTemplate();
+    var left = STAMPS_FULL - c.stamps;
+    var o = null;
+    for (var i = 0; i < offerList.length; i++) if (offerList[i].code === msgOffer) o = offerList[i];
+    var offerLine = o ? 'Use code ' + o.code + ' for ' + o.title + (o.expires ? ' (valid till ' + shortDate(o.expires) + ')' : '') + '.\n' : '';
+    var vars = {
+      name: c.name || 'there', stamps: String(c.stamps),
+      leftLine: c.stamps >= STAMPS_FULL ? 'Your free coffee is waiting.' : left + ' more ' + (left === 1 ? 'order' : 'orders') + ' get you a free coffee.',
+      offerLine: offerLine, link: qrLink
+    };
+    Object.keys(vars).forEach(function (k) { tpl = tpl.split('{' + k + '}').join(vars[k]); });
+    return tpl;
+  }
+  function waHref(c) { return 'https://wa.me/91' + c.phone + '?text=' + encodeURIComponent(fillMsg(c)); }
+  function refreshWaLinks() {
+    var map = {};
+    groupCustomers().forEach(function (c) { map[c.phone] = c; });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-wa]'), function (a) {
+      var c = map[a.getAttribute('data-wa')];
+      if (c) a.setAttribute('href', waHref(c));
+    });
+  }
+  function customerRow(c) {
+    var d = c.lastAt ? daysAgo(c.lastAt) : -1;
+    var due = c.lastAt && d >= DUE_DAYS;
+    var sent = sentMap[c.phone];
+    var act;
+    if (!c.optIn) act = '<span class="pill s3">Opted out of WhatsApp</span>';
+    else act = '<a class="btn-fill" target="_blank" rel="noopener" data-action="wasent" data-wa="' + esc(c.phone) + '" data-phone="' + esc(c.phone) + '" href="' + esc(waHref(c)) + '">' + (sent ? 'Send again' : 'WhatsApp') + '</a>' +
+      (sent ? '<small>Sent ' + esc(shortDate(sent) + ', ' + clock(sent)) + '</small>' : '');
+    return '<li class="crow' + (due ? ' due' : '') + '"><div><p class="c-name">' + esc(c.name || 'Customer') + ' · ' + esc(showPhone(c.phone)) + '</p>' +
+      '<small>' + c.orders + (c.orders === 1 ? ' order' : ' orders') + ' · ' + fmt(c.spent) + ' · ' + c.stamps + ' of ' + STAMPS_FULL + ' stamps' + (c.free ? ' · ' + c.free + ' free coffee used' : '') + '</small>' +
+      '<small>' + esc(agoText(c)) + '</small></div><div class="c-act">' + act + '</div></li>';
+  }
+  function customersTab() {
+    var all = groupCustomers();
+    var due = all.filter(function (c) { return c.lastAt && daysAgo(c.lastAt) >= DUE_DAYS; });
+    var week = all.filter(function (c) { return c.lastAt && daysAgo(c.lastAt) >= 7; });
+    var close = all.filter(function (c) { return c.stamps >= 4; });
+    var optOut = all.filter(function (c) { return !c.optIn; });
+    var h = '<div class="stats">' +
+      '<div class="stat"><b>' + all.length + '</b><span>Customers saved</span></div>' +
+      '<div class="stat"><b>' + due.filter(function (c) { return c.optIn; }).length + '</b><span>Not back in ' + DUE_DAYS + '+ days</span></div>' +
+      '<div class="stat"><b>' + close.length + '</b><span>4+ stamps</span></div>' +
+      '<div class="stat"><b>' + optOut.length + '</b><span>Opted out</span></div></div>';
+    var offs = activeOffers();
+    h += '<div class="panel"><h3>WhatsApp message</h3>' +
+      '<div class="field"><label class="fl" for="m-offer">Offer to include</label><select id="m-offer"><option value="">No offer</option>' +
+      offs.map(function (o) { return '<option value="' + esc(o.code) + '"' + (o.code === msgOffer ? ' selected' : '') + '>' + esc(o.code + ': ' + o.title) + '</option>'; }).join('') + '</select></div>' +
+      '<div class="field"><label class="fl" for="m-text">Message</label><textarea id="m-text">' + esc(msgText || defaultTemplate()) + '</textarea></div>' +
+      '<p class="fine">{name}, {stamps}, {leftLine}, {offerLine} and {link} are filled in for each customer. Tapping WhatsApp opens a chat with the message ready. You press send in WhatsApp.</p>' +
+      '<div class="t-btns"><button type="button" class="btn-line" data-action="mreset">Reset message</button></div></div>';
+    h += '<div class="sfilter">' + [['due', 'Not back in ' + DUE_DAYS + '+ days (' + due.length + ')'], ['week', '7+ days (' + week.length + ')'], ['close', '4+ stamps (' + close.length + ')'], ['all', 'Everyone (' + all.length + ')']].map(function (x) {
+      return '<button type="button" class="chip" data-action="sfilter" data-t="' + x[0] + '" aria-pressed="' + (segFilter === x[0]) + '">' + x[1] + '</button>';
+    }).join('') + '</div>';
+    var list = segFilter === 'due' ? due : segFilter === 'week' ? week : segFilter === 'close' ? close : all;
+    list = list.slice().sort(function (a, b) { return segFilter === 'close' || segFilter === 'all' ? b.lastAt - a.lastAt : a.lastAt - b.lastAt; });
+    h += list.length
+      ? '<ul class="clist">' + list.map(customerRow).join('') + '</ul>'
+      : '<p class="snote">' + (all.length ? 'Nobody in this group right now.' : 'No customers yet. They are saved here when they place an order with their mobile number.') + '</p>';
+    return h;
+  }
+
+  // Offers
+  function offerLabel(o) {
+    return (o.kind === 'percent' ? o.value + '% off' : fmt(o.value) + ' off') + (o.min ? ' above ' + fmt(o.min) : '');
+  }
+  function offersTab() {
+    var h = '<div class="panel"><h3>Make an offer</h3>' +
+      '<form id="offer-form" novalidate>' +
+      '<div class="field"><label class="fl" for="o-title">What customers see</label><input id="o-title" type="text" placeholder="10% off for coming back"></div>' +
+      '<div class="pair"><div class="field"><label class="fl" for="o-code">Code</label><input id="o-code" type="text" autocapitalize="characters" autocomplete="off" placeholder="COMEBACK10"></div>' +
+      '<div class="field"><label class="fl" for="o-kind">Type</label><select id="o-kind"><option value="percent">Percent off</option><option value="flat">Rupees off</option></select></div></div>' +
+      '<div class="pair"><div class="field"><label class="fl" for="o-value">Amount</label><input id="o-value" type="number" inputmode="numeric" min="1" placeholder="10"></div>' +
+      '<div class="field"><label class="fl" for="o-min">Minimum order (₹)</label><input id="o-min" type="number" inputmode="numeric" min="0" placeholder="0"></div></div>' +
+      '<div class="field"><label class="fl" for="o-days">Valid for (days)</label><input id="o-days" type="number" inputmode="numeric" min="1" max="365" value="7"></div>' +
+      '<p class="err" id="o-err" role="alert"' + (offerNote ? '' : ' hidden') + '>' + esc(offerNote) + '</p>' +
+      '<button type="submit" class="place" id="o-btn">Save offer</button></form>' +
+      '<p class="fine">Customers type the code at checkout. Then use the Customers tab to send it on WhatsApp.</p></div>';
+    var rows = offerList.slice().sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); }).map(function (o) {
+      var expired = o.expires && o.expires <= Date.now();
+      var pill = expired ? '<span class="pill s3">Expired</span>' : o.active === false ? '<span class="pill s1">Paused</span>' : '<span class="pill s2">Active</span>';
+      return '<li class="crow"><div><p class="c-name">' + esc(o.code) + ' ' + pill + '</p><small>' + esc(o.title) + '</small><small>' + esc(offerLabel(o)) + (o.expires ? ' · till ' + esc(shortDate(o.expires)) : '') + '</small></div>' +
+        '<div class="c-act"><button type="button" class="btn-line" data-action="offtoggle" data-id="' + esc(o.code) + '">' + (o.active === false ? 'Resume' : 'Pause') + '</button>' +
+        '<button type="button" class="btn-line" data-action="offdel" data-id="' + esc(o.code) + '">' + (delArm === o.code ? 'Tap again to delete' : 'Delete') + '</button></div></li>';
+    }).join('');
+    h += '<h3 style="margin-top:20px;font-family:var(--font-display);font-weight:600;font-size:18px">Your offers</h3>';
+    h += rows ? '<ul class="clist">' + rows + '</ul>' : '<p class="snote">No offers yet. Built-in ones that always work: FIRSTCUP, CHAI20, the drink + bite combo and the free coffee at 6 stamps.</p>';
+    return h;
+  }
+  function offerToggle(code) {
+    var o = null;
+    offerList.forEach(function (x) { if (x.code === code) o = x; });
+    if (!o || !db) return;
+    db.doc('offers/' + code).update({ active: o.active === false }).then(function () {}, function () { staffErr = 'error'; renderStaff(true); });
+  }
+  function offerDelete(code) {
+    if (!db) return;
+    db.doc('offers/' + code).delete().then(function () {}, function () { staffErr = 'error'; });
+    renderStaff(true);
+  }
+  document.addEventListener('submit', function (e) {
+    if (e.target.id === 'offer-form') {
+      e.preventDefault();
+      var title = $('o-title').value.trim(), code = $('o-code').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      var kind = $('o-kind').value, value = Math.round(+$('o-value').value), min = Math.round(+$('o-min').value || 0), days = Math.round(+$('o-days').value);
+      var msg = '';
+      if (!title) msg = 'Write what customers will see.';
+      else if (code.length < 4 || code.length > 12) msg = 'Use a code of 4 to 12 letters or numbers.';
+      else if (CODES[code]) msg = 'That code is already built in. Pick another.';
+      else if (!(value >= 1)) msg = 'Enter the amount off.';
+      else if (kind === 'percent' && value > 50) msg = 'Percent off can be at most 50.';
+      else if (kind === 'flat' && value > 500) msg = 'Rupees off can be at most 500.';
+      else if (!(days >= 1 && days <= 365)) msg = 'Valid for between 1 and 365 days.';
+      if (msg) { offerNote = msg; var el = $('o-err'); el.textContent = msg; el.hidden = false; return; }
+      offerNote = '';
+      $('o-btn').disabled = true;
+      var end = new Date(); end.setHours(23, 59, 59, 0);
+      db.doc('offers/' + code).set({ code: code, title: title, kind: kind, value: value, min: min, expires: end.getTime() + (days - 1) * DAY, active: true, createdAt: Date.now() }).then(function () {
+        msgOffer = code;
+        if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+        staffTab = 'customers';
+        renderStaff(true);
+      }, function () {
+        offerNote = 'Could not save the offer. Try again.';
+        renderStaff(true);
+      });
+      return;
+    }
+    if (e.target.id !== 'gate-form') return;
+    e.preventDefault();
+    var pw = ($('g-pw') || {}).value || '', pw2 = ($('g-pw2') || {}).value || '', cur = ($('g-cur') || {}).value || '';
+    $('g-btn').disabled = true;
+    if (staffAuth === 'locked') {
+      var em = ($('g-email') || {}).value || '';
+      if (Date.now() < blockedUntil) { gateError('Too many tries. Wait a few seconds and try again.'); return; }
+      if (!em.trim() || !pw) { gateError('Enter your email and password.'); return; }
+      firebase.auth().signInWithEmailAndPassword(em.trim(), pw).catch(function () {
+        tries++;
+        if (tries >= 5) { blockedUntil = Date.now() + 30000; tries = 0; gateError('Too many tries. Wait 30 seconds and try again.'); }
+        else gateError('Email or password is not right.');
+      });
+      return;
+    }
+    if (pw.length < 4) { gateError('Use at least 4 characters.'); return; }
+    if (pw !== pw2) { gateError('The two passwords do not match.'); return; }
+    var go = function () {
+      savePassword(pw).then(openStaff, function () { gateError('Could not save the password. Try again.'); });
+    };
+    if (staffAuth === 'change') {
+      hashPw(cur, cfg.salt).then(function (h) {
+        if (h !== cfg.hash) gateError('The current password is not right.'); else go();
+      }, function () { gateError('Could not check the password in this browser.'); });
+    } else go();
+  });
+  document.addEventListener('input', function (e) {
+    if (e.target.classList && e.target.classList.contains('rate-text')) {
+      var rid = e.target.getAttribute('data-oid');
+      (rateDraft[rid] || (rateDraft[rid] = { stars: 0, text: '' })).text = e.target.value;
+    } else if (e.target.id === 'm-text') {
+      msgText = e.target.value;
+      save('cc-msg', msgText);
+      refreshWaLinks();
+    }
+  });
+  document.addEventListener('change', function (e) {
+    if (e.target.getAttribute && e.target.getAttribute('data-badge')) {
+      var bid = e.target.getAttribute('data-badge'), bv = e.target.value;
+      e.target.blur();
+      menuWrite(bid, { badge: bv }).then(function () { renderStaff(true); });
+    } else if (e.target.getAttribute && e.target.getAttribute('data-menufile')) {
+      var mf = e.target.files && e.target.files[0];
+      menuUpload(e.target.getAttribute('data-menufile'), mf);
+      e.target.value = '';
+    } else if (e.target.id === 't-count') {
+      tableCount = Math.min(40, Math.max(1, Math.round(+e.target.value) || 10));
+      save('cc-tables', tableCount);
+      renderStaff(true);
+    } else if (e.target.id === 'm-offer') {
+      msgOffer = e.target.value;
+      refreshWaLinks();
+    } else if (e.target.id === 'q-link') {
+      var v = e.target.value.trim().split('#')[0];
+      if (/^https:\/\//i.test(v)) { qrLink = v; save('cc-link', v); qrNote = ''; } else qrNote = 'The link must start with https://';
+      renderStaff(true);
+    }
+  });
+  document.addEventListener('focusout', function () {
+    if (staffDirty) setTimeout(function () { if (staffDirty) renderStaff(); }, 500);
+  });
+
+  // QR code for the tables
+  function qrSvg(text, label) {
+    if (!window.qrcode) return '';
+    try {
+      var qr = window.qrcode(0, 'M');
+      qr.addData(text);
+      qr.make();
+      var n = qr.getModuleCount(), m = 4, path = '';
+      for (var r = 0; r < n; r++) for (var c = 0; c < n; c++) if (qr.isDark(r, c)) path += 'M' + (c + m) + ' ' + (r + m) + 'h1v1h-1z';
+      var s = n + m * 2;
+      return '<svg viewBox="0 0 ' + s + ' ' + s + '" role="img" aria-label="' + esc(label || 'QR code for the Corner Cup menu') + '" shape-rendering="crispEdges"><rect width="' + s + '" height="' + s + '" fill="#FFFFFF"/><path d="' + path + '" fill="#000000"/></svg>';
+    } catch (err) { return ''; }
+  }
+  function qrTab() {
+    var svg = qrSvg(qrBase());
+    return '<div class="qrbox">' +
+      (svg ? '<div class="qrimg">' + svg + '</div>' : '<p class="snote">The QR code could not be drawn here. Use the link below with any QR maker.</p>') +
+      '<div class="field" style="width:100%"><label class="fl" for="q-link">Menu link</label><input id="q-link" type="url" value="' + esc(qrLink) + '"></div>' +
+      '<div class="t-btns"><button type="button" class="btn-fill" data-action="copylink">Copy link</button></div>' +
+      '<p class="fine" role="status">' + esc(qrNote) + '</p>' +
+      '<p class="fine">Put this on every table and at the counter. Customers scan it with the phone camera or Google Lens and the menu opens. Take a screenshot of the code to print it.</p></div>' + tableQrs();
+  }
+
+  function qrBase() { return String(qrLink).split('#')[0]; }
+  function tableQrs() {
+    var cards = '';
+    for (var n = 1; n <= tableCount; n++) {
+      cards += '<div class="qcard"><b>Table ' + n + '</b><div class="qrimg">' + qrSvg(qrBase() + '#table-' + n, 'QR code for table ' + n) + '</div></div>';
+    }
+    return '<h3 class="mt-h">QR code for each table</h3>' +
+      '<p class="fine">Each code opens the menu with that table number already filled in, and shows Call waiter, Water and Bill buttons. Print one per table.</p>' +
+      '<div class="field" style="max-width:200px"><label class="fl" for="t-count">How many tables</label><input id="t-count" type="number" inputmode="numeric" min="1" max="40" value="' + tableCount + '"></div>' +
+      '<div class="qgrid">' + cards + '</div>';
+  }
+
+  function beep() {
+    if (!soundOn) return;
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === 'suspended') actx.resume();
+      var t = actx.currentTime;
+      [880, 1175].forEach(function (f, i) {
+        var o = actx.createOscillator(), g = actx.createGain(), s = t + i * 0.2;
+        o.type = 'sine'; o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, s);
+        g.gain.exponentialRampToValueAtTime(0.25, s + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, s + 0.3);
+        o.connect(g); g.connect(actx.destination);
+        o.start(s); o.stop(s + 0.32);
+      });
+    } catch (err) {}
+  }
+
+  function callsBar() {
+    var cs = staffData.calls.filter(function (c) { return c.reqs && Object.keys(c.reqs).length; });
+    if (!cs.length) return '';
+    var L = { waiter: 'Waiter', water: 'Water', bill: 'Bill' };
+    return '<div class="alertbar" role="status">' + cs.map(function (c) {
+      var what = Object.keys(c.reqs).map(function (k) { return L[k] || k; }).join(', ');
+      return '<div class="alert"><span>Table ' + esc(c.table) + ': ' + esc(what) + (c.name ? ' (' + esc(c.name) + ')' : '') + '</span>' +
+        '<button type="button" class="btn-fill" data-action="calldone" data-uid="' + esc(c.uid) + '">Done</button></div>';
+    }).join('') + '</div>';
+  }
+
+  function kitchenTab(orders) {
+    var cols = [['New', 0], ['Preparing', 1], ['Ready', 2]];
+    return '<div class="kcols">' + cols.map(function (c) {
+      var list = orders.filter(function (o) { return Math.min(3, staffStage(o)) === c[1]; }).sort(function (a, b) { return a.placedAt - b.placedAt; });
+      return '<div><h3>' + c[0] + ' (' + list.length + ')</h3>' +
+        (list.length ? '<ul class="tickets">' + list.map(orderCard).join('') + '</ul>' : '<p class="snote">Nothing here.</p>') + '</div>';
+    }).join('') + '</div>';
+  }
+
+  // Menu tab: sold out, badge and photo for each item
+  function menuWrite(id, patch) {
+    if (!db) return Promise.resolve();
+    var ref = db.doc('menu/' + id);
+    return ref.get().then(function (s) { return s.exists ? ref.update(patch) : ref.set(patch); })
+      .then(function () { menuNote = ''; }, function () { menuNote = 'Could not save. Try again.'; });
+  }
+  function shrink(file) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(file), im = new Image();
+      im.onload = function () {
+        var sc = Math.min(1, 480 / Math.max(im.width, im.height)), c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(im.width * sc)); c.height = Math.max(1, Math.round(im.height * sc));
+        c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        c.toBlob(function (b) { if (b) resolve(b); else reject(new Error('blob')); }, 'image/jpeg', 0.75);
+      };
+      im.onerror = function () { URL.revokeObjectURL(url); reject(new Error('img')); };
+      im.src = url;
+    });
+  }
+  function menuUpload(id, file) {
+    if (!assets || !file) return;
+    if (!/^image\//.test(file.type)) { menuNote = 'Choose an image file.'; renderStaff(true); return; }
+    menuNote = 'Uploading photo...';
+    renderStaff(true);
+    shrink(file).then(function (b) { return assets.upload(b); }).then(function (r) {
+      return menuWrite(id, { img: r.url, imgId: r.id });
+    }).then(function () { if (!menuNote) menuNote = 'Photo saved.'; }, function () { menuNote = 'Could not upload the photo. Try another image.'; })
+      .then(function () { renderStaff(true); });
+  }
+  function menuTab() {
+    var h = '<p class="fine">Mark an item sold out and customers cannot order it. Photos show on the menu.</p>';
+    if (menuNote) h += '<p class="snote" role="status">' + esc(menuNote) + '</p>';
+    if (!assets) h += '<p class="snote">Photo upload is not available in this view.</p>';
+    MENU.forEach(function (c) {
+      h += '<h3 class="mt-h">' + esc(c.cat) + '</h3><ul class="clist">' + c.items.map(function (i) {
+        var cf = cfgOf(i.id), bd = badgeOf(i.id);
+        var opts = [['', 'No badge'], ['bestseller', 'Bestseller'], ['chef', "Chef's pick"], ['new', 'New']].map(function (o) {
+          return '<option value="' + o[0] + '"' + (o[0] === bd ? ' selected' : '') + '>' + esc(o[1]) + '</option>';
+        }).join('');
+        return '<li class="crow"><div class="mm">' + (cf.img ? '<img class="thumb" src="' + esc(cf.img) + '" alt="">' : '') +
+          '<div><p class="c-name">' + esc(i.name) + '</p><small>' + fmt(i.price) + (i.custom ? ' from' : '') + (cf.soldOut ? ' · Sold out' : '') + '</small></div></div>' +
+          '<div class="mact"><button type="button" class="btn-line" data-action="msold" data-id="' + i.id + '">' + (cf.soldOut ? 'Back in stock' : 'Mark sold out') + '</button>' +
+          '<select data-badge="' + i.id + '" aria-label="Badge for ' + esc(i.name) + '">' + opts + '</select>' +
+          (assets ? '<label class="btn-line filebtn">' + (cf.img ? 'Change photo' : 'Add photo') + '<input type="file" accept="image/*" data-menufile="' + i.id + '"></label>' : '') +
+          (cf.img ? '<button type="button" class="btn-line" data-action="mimgdel" data-id="' + i.id + '">Remove photo</button>' : '') +
+          '</div></li>';
+      }).join('') + '</ul>';
+    });
+    return h;
+  }
+
+  // Reports: last 7 days, from the orders customers have shared
+  function salesChart(days) {
+    var W = 320, H = 170, pad = 14, bw = 30, gap = (W - 2 * pad - 7 * bw) / 6;
+    var max = Math.max.apply(null, days.map(function (d) { return d.total; }).concat([1]));
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Sales for the last 7 days">';
+    days.forEach(function (d, i) {
+      var x = pad + i * (bw + gap), hh = Math.round((H - 56) * d.total / max), y = H - 24 - hh;
+      var amt = d.total >= 1000 ? (d.total / 1000).toFixed(1) + 'k' : String(Math.round(d.total));
+      s += '<rect x="' + x + '" y="' + y + '" width="' + bw + '" height="' + Math.max(hh, d.total ? 2 : 0) + '" rx="4" style="fill:var(--accent)"/>' +
+        (d.total ? '<text x="' + (x + bw / 2) + '" y="' + (y - 5) + '" text-anchor="middle" font-size="10" style="fill:var(--muted)">' + amt + '</text>' : '') +
+        '<text x="' + (x + bw / 2) + '" y="' + (H - 8) + '" text-anchor="middle" font-size="11" style="fill:var(--muted)">' + esc(d.label) + '</text>';
+    });
+    return s + '</svg>';
+  }
+  function reportsTab() {
+    var now = new Date(), days = [], map = {}, items = {}, i;
+    for (i = 6; i >= 0; i--) {
+      var d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      var o = { key: ymd(d), label: d.toLocaleDateString('en-IN', { weekday: 'short' }), total: 0, n: 0 };
+      days.push(o); map[o.key] = o;
+    }
+    staffData.orders.forEach(function (ord) {
+      var x = map[ymd(new Date(ord.placedAt))];
+      if (!x) return;
+      x.total += ord.total || 0; x.n += 1;
+      ((ord.rec && ord.rec.lines) || []).forEach(function (l) { items[l.name] = (items[l.name] || 0) + (l.q || 0); });
+    });
+    var today = days[6], wk = days.reduce(function (a, b) { return a + b.total; }, 0), wn = days.reduce(function (a, b) { return a + b.n; }, 0);
+    var h = '<div class="stats">' +
+      '<div class="stat"><b>' + today.n + '</b><span>Orders today</span></div>' +
+      '<div class="stat"><b>' + fmt(today.total) + '</b><span>Sales today</span></div>' +
+      '<div class="stat"><b>' + wn + '</b><span>Orders, 7 days</span></div>' +
+      '<div class="stat"><b>' + fmt(wk) + '</b><span>Sales, 7 days</span></div></div>';
+    h += '<div class="chart">' + salesChart(days) + '</div>';
+    var top = Object.keys(items).sort(function (a, b) { return items[b] - items[a]; }).slice(0, 5);
+    h += '<h3 class="mt-h">Top items this week</h3>';
+    h += top.length ? '<ul class="clist">' + top.map(function (k) { return '<li class="crow"><div><p class="c-name">' + esc(k) + '</p></div><div class="c-act"><b>' + items[k] + ' sold</b></div></li>'; }).join('') + '</ul>' : '<p class="snote">No sales in the last 7 days.</p>';
+    var fb = staffData.feedback.slice().sort(function (a, b) { return b.at - a.at; });
+    h += '<h3 class="mt-h">Customer ratings</h3>';
+    if (fb.length) {
+      var avg = fb.reduce(function (a, b) { return a + (b.stars || 0); }, 0) / fb.length;
+      h += '<p class="snote"><strong>' + avg.toFixed(1) + ' of 5</strong> from ' + fb.length + (fb.length === 1 ? ' rating' : ' ratings') + '</p><div class="clist">' +
+        fb.slice(0, 8).map(function (f) {
+          return '<div class="rv"><b style="color:var(--warn)">' + starsText(f.stars || 0) + '</b> <small>' + esc((f.name || 'Customer') + ' · ' + (f.token || '') + ' · ' + shortDate(f.at)) + '</small>' +
+            (f.text ? '<p>' + esc(f.text) + '</p>' : '') + '</div>';
+        }).join('') + '</div>';
+    } else h += '<p class="snote">No ratings yet. Customers can rate after their order is ready.</p>';
+    h += '<p class="fine">Based on the most recent 8 orders from each customer, so older busy days may look low.</p>';
+    return h;
+  }
+
+  function orderCard(o) {
+    var st = Math.min(3, staffStage(o));
+    var mins = Math.round((Date.now() - o.placedAt) / 60000);
+    var next = [['Start preparing', 1], ['Mark ready', 2], ['Complete and take payment', 3]][st];
+    var items = (o.items || []).map(function (i) {
+      return '<li>' + esc(i.t) + (i.sub ? '<small>' + esc(i.sub) + '</small>' : '') + '</li>';
+    }).join('');
+    return '<li class="ticket' + (st === 0 ? ' new' : '') + '">' +
+      '<div class="t-head"><span class="t-token">' + esc(o.token) + '</span><span class="pill s' + st + '">' + STAGE_NAMES[st] + '</span></div>' +
+      '<p class="t-meta">' + esc(o.name) + (o.phone ? ' · ' + esc(showPhone(o.phone)) : '') + ' · ' + (o.type === 'dinein' ? 'Table ' + esc(o.table) : 'Pickup') + ' · ' + clock(o.placedAt) + (st < 3 ? ' (' + mins + ' min ago)' : '') + '</p>' +
+      '<ul class="t-rows">' + items + '</ul>' +
+      (o.note ? '<p class="t-note">Note: ' + esc(o.note) + '</p>' : '') +
+      '<div class="t-foot"><strong>' + fmt(o.total) + ' · ' + (st >= 3 ? 'Paid' : 'To collect') + '</strong>' +
+      (next ? '<button type="button" class="btn-fill" data-action="advance" data-uid="' + esc(o.uid) + '" data-id="' + esc(o.id) + '" data-n="' + next[1] + '"' + (staffBusy ? ' disabled' : '') + '>' + next[0] + '</button>' : '') +
+      '</div></li>';
+  }
+  function bookingCard(b) {
+    var st = staffBookState(b);
+    var pill = st === 'confirmed' ? '<span class="pill s2">Confirmed</span>' : st === 'declined' ? '<span class="pill bad">Declined</span>' : '<span class="pill s1">Needs reply</span>';
+    var dis = staffBusy ? ' disabled' : '';
+    return '<li class="ticket' + (st === 'pending' ? ' new' : '') + '">' +
+      '<div class="t-head"><span class="t-token">' + b.party + (b.party === 1 ? ' guest' : ' guests') + '</span>' + pill + '</div>' +
+      '<p class="t-meta"><strong>' + esc(dateLabel(b.date)) + ', ' + esc(t12(b.time)) + '</strong></p>' +
+      '<p class="t-meta">' + esc(b.name) + (b.phone ? ' · ' + esc(showPhone(b.phone)) : '') + '</p>' +
+      (b.note ? '<p class="t-note">Note: ' + esc(b.note) + '</p>' : '') +
+      '<div class="t-btns">' +
+      (st !== 'confirmed' ? '<button type="button" class="btn-fill" data-action="reply" data-n="confirmed" data-uid="' + esc(b.uid) + '" data-id="' + esc(b.id) + '"' + dis + '>Confirm</button>' : '') +
+      (st !== 'declined' ? '<button type="button" class="btn-line" data-action="reply" data-n="declined" data-uid="' + esc(b.uid) + '" data-id="' + esc(b.id) + '"' + dis + '>Decline</button>' : '') +
+      '</div></li>';
+  }
+  function renderStaff(force) {
+    var el = $('staff-body');
+    if (!isStaff || staffAuth !== 'open' || $('staff').hidden) return;
+    var ae = document.activeElement;
+    if (!force && ae && el.contains(ae) && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) { staffDirty = true; return; }
+    staffDirty = false;
+    var orders = staffData.orders.slice(), books = staffData.bookings.slice();
+    var active = orders.filter(function (o) { return staffStage(o) < 3; });
+    var done = orders.filter(function (o) { return staffStage(o) >= 3; });
+    var pending = books.filter(function (b) { return staffBookState(b) === 'pending'; });
+    var dueN = groupCustomers().filter(function (c) { return c.optIn && c.lastAt && daysAgo(c.lastAt) >= DUE_DAYS; }).length;
+    function tab(t, label) { return '<button type="button" class="chip" data-action="stab" data-t="' + t + '" aria-pressed="' + (staffTab === t) + '">' + label + '</button>'; }
+    var h = callsBar() + '<div class="stabs">' + tab('orders', 'Orders (' + active.length + ')') + tab('kitchen', 'Kitchen') + tab('bookings', 'Bookings (' + pending.length + ')') +
+      tab('customers', 'Customers' + (dueN ? ' (' + dueN + ' to remind)' : '')) + tab('offers', 'Offers') + tab('menu', 'Menu') + tab('reports', 'Reports') + tab('qr', 'QR code') + '</div>';
+    var ready = staffLoaded.orders && staffLoaded.bookings && staffLoaded.status && staffLoaded.customers;
+    if (staffErr) h += '<p class="snote" role="status">Something went wrong talking to the store (' + esc(staffErr) + '). Check your connection and try again.</p>';
+    if (staffTab === 'qr') { el.innerHTML = h + qrTab(); return; }
+    if (staffTab === 'menu') { el.innerHTML = h + menuTab(); return; }
+    if (!ready && !staffErr) {
+      h += '<p class="snote" role="status">' + (staffSlow ? 'Cannot reach live data yet. It will appear as soon as the connection is back.' : 'Connecting to live data...') + '</p>';
+      el.innerHTML = h;
+      return;
+    }
+    if (staffTab === 'orders') {
+      h += '<div class="sfilter"><button type="button" class="chip" data-action="sfilter" data-t="active" aria-pressed="' + (ordersFilter === 'active') + '">Active (' + active.length + ')</button>' +
+        '<button type="button" class="chip" data-action="sfilter" data-t="done" aria-pressed="' + (ordersFilter === 'done') + '">Completed (' + done.length + ')</button></div>';
+      var list = ordersFilter === 'active'
+        ? active.sort(function (a, b) { return a.placedAt - b.placedAt; })
+        : done.sort(function (a, b) { return b.placedAt - a.placedAt; });
+      h += list.length
+        ? '<ul class="tickets">' + list.map(orderCard).join('') + '</ul>'
+        : '<p class="snote">' + (ordersFilter === 'active' ? 'No active orders. New ones appear here as customers place them.' : 'No completed orders yet.') + '</p>';
+    } else if (staffTab === 'bookings') {
+      h += '<div class="sfilter"><button type="button" class="chip" data-action="sfilter" data-t="pending" aria-pressed="' + (bookFilter === 'pending') + '">Needs reply (' + pending.length + ')</button>' +
+        '<button type="button" class="chip" data-action="sfilter" data-t="all" aria-pressed="' + (bookFilter === 'all') + '">All (' + books.length + ')</button></div>';
+      var bl = (bookFilter === 'pending' ? pending : books).sort(function (a, b) {
+        return (a.date + a.time) < (b.date + b.time) ? -1 : 1;
+      });
+      h += bl.length
+        ? '<ul class="tickets">' + bl.map(bookingCard).join('') + '</ul>'
+        : '<p class="snote">' + (bookFilter === 'pending' ? 'No table requests waiting for a reply.' : 'No table requests yet.') + '</p>';
+    } else if (staffTab === 'kitchen') {
+      h += kitchenTab(orders);
+    } else if (staffTab === 'reports') {
+      h += reportsTab();
+    } else if (staffTab === 'customers') {
+      h += customersTab();
+    } else {
+      h += offersTab();
+    }
+    el.innerHTML = h;
+  }
+
+  // Views: the customer page, and #staff for people with edit access
+  function route() {
+    var staff = MODE === 'staff';
+    $('customer').hidden = staff;
+    $('staff').hidden = !staff;
+    if (staff) {
+      if (!cfgAsked) loadCfg(); else gateRender();
+    } else {
+      applyTable();
+    }
+    window.scrollTo(0, 0);
+  }
+  window.addEventListener('hashchange', route);
+
+  prefill();
+  renderStamps();
+  renderMenu();
+  updateAll();
+  updateBadge();
+  renderWelcome();
+
+  applyTable();
+  if (lang === 'hi') setLang('hi');
+
+  function startFirebase() {
+    var fc = window.FIREBASE_CONFIG;
+    if (!window.firebase || !fc || !fc.apiKey || /PASTE/i.test(fc.apiKey)) { route(); return; }
+    try { firebase.initializeApp(fc); } catch (e) { route(); return; }
+    var auth = firebase.auth();
+    db = firebase.firestore();
+    dl = {
+      save: function (r) {
+        return new Promise(function (resolve, reject) {
+          try {
+            var blob = r.data instanceof Blob ? r.data : new Blob([r.data]);
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob); a.download = r.filename;
+            document.body.appendChild(a); a.click();
+            setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+            resolve({ status: 'saved' });
+          } catch (err) { reject({ code: 'unavailable' }); }
+        });
+      }
+    };
+    Array.prototype.forEach.call(document.querySelectorAll('[data-dl]'), function (b) { b.hidden = false; });
+    if (MODE === 'staff') {
+      // Photos are stored inside the menu document as a small picture, so no paid storage is needed.
+      assets = {
+        upload: function (blob) {
+          return new Promise(function (resolve, reject) {
+            var fr = new FileReader();
+            fr.onload = function () { resolve({ id: '', url: String(fr.result) }); };
+            fr.onerror = function () { reject(new Error('read')); };
+            fr.readAsDataURL(blob);
+          });
+        }
+      };
+    }
+    route();
+    var started = false;
+    auth.onAuthStateChanged(function (u) {
+      if (MODE === 'staff') {
+        cfgAsked = true;
+        if (u && !u.isAnonymous) {
+          uid = u.uid; isStaff = true;
+          if (!started) { started = true; watchStatus(); }
+          openStaff();
+        } else {
+          isStaff = false; staffAuth = 'locked';
+          gateRender();
+        }
+      } else if (u) {
+        uid = u.uid;
+        if (!started) { started = true; watchStatus(); }
+        renderTablebar();
+      } else {
+        auth.signInAnonymously().catch(function () {});
+      }
+    });
+  }
+
+  applyTable();
+  if (lang === 'hi') setLang('hi');
+  startFirebase();
+})();
+
+</script>
+</body>
+</html>
