@@ -1154,8 +1154,9 @@ window.FIREBASE_CONFIG = {
   function stageName(o, s) { return s === 2 ? (o.type === 'dinein' ? 'At your table' : 'Ready to collect') : STAGE_NAMES[s]; }
 
   // Sharing with the cafe: one document per customer under orders/<id> and bookings/<id>
+  var lastErr = '';
   function share(coll, payload) {
-    if (!db || !uid) return Promise.resolve(false);
+    if (!db || !uid) { lastErr = !db ? 'firebase-not-connected' : 'not-signed-in (' + (authErr || 'no reason') + ')'; return Promise.resolve(false); }
     var ref = db.doc(coll + '/' + uid);
     return ref.get().then(function (s) {
       var d = s.exists ? s.data() : null;
@@ -1163,7 +1164,7 @@ window.FIREBASE_CONFIG = {
       var body = { uid: uid };
       body[coll] = list.concat([payload]).slice(-8);
       return ref.set(body);
-    }).then(function () { return true; }, function () { return false; });
+    }).then(function () { return true; }, function (e) { lastErr = (e && e.code) || 'error'; return false; });
   }
   // The customer record the cafe uses for stamps, offers and WhatsApp
   function upsertCustomer(f) {
@@ -1446,7 +1447,7 @@ window.FIREBASE_CONFIG = {
     $('done-stamp').hidden = !order.stampMsg;
     $('done-note').textContent = order.shared
       ? 'Sent to the cafe. This updates when the team moves your order along.'
-      : 'Demo only: this order was not sent to the cafe, and the status runs at demo speed.';
+      : 'Demo only: this order was not sent to the cafe, and the status runs at demo speed. REASON: ' + lastErr;
   }
   function setStage(s) {
     if (!order) return;
@@ -2601,9 +2602,10 @@ window.FIREBASE_CONFIG = {
   applyTable();
   if (lang === 'hi') setLang('hi');
 
+  var authErr = '';
   function startFirebase() {
     var fc = window.FIREBASE_CONFIG;
-    if (!window.firebase || !fc || !fc.apiKey || /PASTE/i.test(fc.apiKey)) { route(); return; }
+    if (!window.firebase || !fc || !fc.apiKey || /PASTE/i.test(fc.apiKey)) { authErr = 'no-firebase-sdk-or-config'; route(); return; }
     try { firebase.initializeApp(fc); } catch (e) { route(); return; }
     var auth = firebase.auth();
     db = firebase.firestore();
@@ -2653,7 +2655,7 @@ window.FIREBASE_CONFIG = {
         if (!started) { started = true; watchStatus(); }
         renderTablebar();
       } else {
-        auth.signInAnonymously().catch(function () {});
+        auth.signInAnonymously().catch(function (e) { authErr = (e && e.code) || 'error'; });
       }
     });
   }
