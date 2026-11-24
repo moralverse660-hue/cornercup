@@ -372,3 +372,30 @@ img { max-width: 100%; }
 .tcell.free { border-color: var(--accent); color: var(--accent); cursor: pointer; }
 .tcell.mine { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); cursor: pointer; }
 .tcell.busy { background: var(--warn-bg); border-color: var(--warn); color: var(--warn); opacity: 0.85; }
+
+/* phone-friendly polish: customer and staff */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+button, a, select, input, textarea { touch-action: manipulation; }
+img, svg, video { max-width: 100%; }
+.btn-fill, .btn-line, .chip, .linkbtn, .add, .close, .ghost, .place { min-height: 44px; }
+.step button { min-width: 44px; min-height: 44px; }
+.stabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 4px; margin-left: -2px; position: sticky; top: 0; z-index: 5; background: var(--bg); padding-top: 8px; }
+.stabs::-webkit-scrollbar { display: none; }
+.stabs .chip { white-space: nowrap; }
+.tickets { grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); }
+.kcols { grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
+.alert { flex-wrap: wrap; }
+@media (max-width: 560px) {
+  .pair { grid-template-columns: 1fr; }
+  .crow { grid-template-columns: minmax(0, 1fr); }
+  .mact { justify-content: flex-start; }
+  .mact > * { flex: 1 1 42%; }
+  .mact .btn-fill, .mact .btn-line { padding-left: 10px; padding-right: 10px; }
+  .t-foot { flex-direction: column; align-items: stretch; }
+  .t-foot .btn-fill, .t-btns .btn-fill, .t-btns .btn-line { width: 100%; min-height: 50px; font-size: 16px; }
+  .t-btns { display: grid; gap: 8px; }
+  .alert .btn-fill { width: 100%; min-height: 50px; }
+  .editform .tb-row > * { flex: 1 1 40%; }
+  .qgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tmap { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}

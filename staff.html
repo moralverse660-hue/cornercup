@@ -2300,16 +2300,23 @@ window.FIREBASE_CONFIG = {
     var s = staffData.status[b.uid];
     return (s && s.bookings && s.bookings[b.id]) || 'pending';
   }
+  var staffNote = '';
   function staffWrite(userId, itemId, field, value) {
     if (!db || staffBusy || !userId || !itemId) return;
-    staffBusy = true;
+    staffBusy = true; staffNote = '';
     renderStaff(true);
     var ref = db.doc('status/' + userId);
     var patch = {};
     patch[field] = {};
     patch[field][itemId] = value;
-    ref.get().then(function (s) {
-      return s.exists ? ref.update(patch) : ref.set(patch);
+    // Read the latest value first. A merge write changes only this one order and never touches the customer's other orders.
+    ref.get().then(function (sn) {
+      var d = sn.exists ? (sn.data() || {}) : {}, cur = d[field] && d[field][itemId];
+      if (field === 'stages' && typeof cur === 'number' && cur >= value) {
+        staffNote = 'Someone else already did this step for this order. The list now shows the latest.';
+        return;
+      }
+      return ref.set(patch, { merge: true });
     }).then(function () { staffErr = ''; }, function (err) {
       staffErr = (err && err.code) || 'error';
     }).then(function () {
@@ -2577,7 +2584,7 @@ window.FIREBASE_CONFIG = {
       cards += '<div class="qcard"><b>Table ' + n + '</b><div class="qrimg">' + qrSvg(qrBase() + '#table-' + n, 'QR code for table ' + n) + '</div></div>';
     }
     return '<h3 class="mt-h">QR code for each table</h3>' +
-      '<p class="fine">Each code opens the menu with that table number already filled in, and shows Call waiter, Water and Bill buttons. Print one per table.</p>' +
+      '<p class="fine">Each code opens the menu with that table number already filled in, and shows the Call staff button. Print one per table.</p>' +
       '<div class="field" style="max-width:200px"><label class="fl" for="t-count">How many tables</label><input id="t-count" type="number" inputmode="numeric" min="1" max="40" value="' + tableCount + '"></div>' +
       '<div class="qgrid">' + cards + '</div>';
   }
@@ -2865,6 +2872,7 @@ window.FIREBASE_CONFIG = {
     var h = callsBar() + '<div class="stabs">' + tab('orders', 'Orders (' + active.length + ')') + tab('kitchen', 'Kitchen') + tab('bookings', 'Bookings (' + pending.length + ')') +
       tab('customers', 'Customers' + (dueN ? ' (' + dueN + ' to remind)' : '')) + tab('offers', 'Offers') + tab('tables', 'Tables') + tab('menu', 'Menu') + tab('reports', 'Reports') + tab('qr', 'QR code') + '</div>';
     var ready = staffLoaded.orders && staffLoaded.bookings && staffLoaded.status && staffLoaded.customers;
+    if (staffNote) h += '<p class="snote" role="status">' + esc(staffNote) + '</p>';
     if (staffErr) h += '<p class="snote" role="status">Something went wrong talking to the store (' + esc(staffErr) + '). Check your connection and try again.</p>';
     if (staffTab === 'qr') { el.innerHTML = h + qrTab(); return; }
     if (staffTab === 'menu') { el.innerHTML = h + menuTab(); return; }
