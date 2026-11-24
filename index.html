@@ -523,6 +523,28 @@ window.FIREBASE_CONFIG = {
   }
   var CALLS = [['water', 'Water'], ['plate', 'Extra plate'], ['spoon', 'Extra teaspoon'], ['bill', 'Bring the bill'], ['other', 'Other']];
   var callDraft = { sel: {}, text: '', table: '', err: '' };
+  // Table lock: the first phone to order at a table holds it for 90 minutes (staff can free it)
+  var TABLE_HOLD = 90 * 60000, tableMap = {}, tableTotal = 10, tableMsg = '';
+  function busyBy(n) { var d = tableMap[n]; return !!(d && d.uid !== uid && Date.now() - (d.at || 0) < TABLE_HOLD); }
+  function tableBlocked() { return MODE === 'customer' && tableNo && type === 'dinein' && busyBy(tableNo); }
+  function tableMapHTML(pickable) {
+    var h = '<div class="tmap" role="list">';
+    for (var n = 1; n <= tableTotal; n++) {
+      var b = busyBy(n), mine = tableMap[n] && tableMap[n].uid === uid && Date.now() - (tableMap[n].at || 0) < TABLE_HOLD;
+      h += '<span role="listitem">' + (b || !pickable
+        ? '<span class="tcell ' + (b ? 'busy' : mine ? 'mine' : 'free') + '">' + n + '<small>' + (b ? 'Busy' : mine ? 'Yours' : 'Free') + '</small></span>'
+        : '<button type="button" class="tcell ' + (mine ? 'mine' : 'free') + '" data-action="pickt" data-id="' + n + '">' + n + '<small>' + (mine ? 'Yours' : 'Free') + '</small></button>') + '</span>';
+    }
+    return h + '</div>';
+  }
+  function claimTable(n, name) {
+    var ref = db.doc('tables/' + n);
+    return ref.get().then(function (sn) {
+      var d = sn.exists ? sn.data() : null;
+      if (d && d.uid !== uid && Date.now() - (d.at || 0) < TABLE_HOLD) return 'busy';
+      return ref.set({ uid: uid, at: Date.now(), n: +n, name: String(name || '').split(' ')[0] }).then(function () { return 'ok'; }, function () { return 'busy'; });
+    }, function () { return 'ok'; });
+  }
   function callList(c) {
     if (!c || !c.reqs) return [];
     return CALLS.filter(function (r) { return c.reqs[r[0]]; }).map(function (r) {
@@ -538,6 +560,12 @@ window.FIREBASE_CONFIG = {
       return;
     }
     el.hidden = false;
+    if (tableBlocked()) {
+      el.innerHTML = '<div><strong>Table ' + esc(tableNo) + ' is busy</strong><p>Someone at this table is already ordering. Pick a free table below, or ask the team.</p></div>' +
+        tableMapHTML(true) + (tableMsg ? '<p class="err" role="alert">' + esc(tableMsg) + '</p>' : '') +
+        '<div class="tb-row"><button type="button" class="btn-fill" data-action="callopen">🔔 Call staff</button></div>';
+      return;
+    }
     var pend = callList(callDoc), h = '';
     if (tableNo) h += '<div><strong>Table ' + esc(tableNo) + '</strong><p>Order from your seat. Need something?</p></div>';
     else h += '<div><strong>Need something?</strong><p>Call the team to your table.</p></div>';
@@ -737,6 +765,7 @@ window.FIREBASE_CONFIG = {
     'Baked fresh each morning': 'हर सुबह ताज़ा बेक',
     'One thick slice, lightly toasted': 'एक मोटा स्लाइस, हल्का टोस्टेड',
     'Order from your seat. Need something?': 'अपनी सीट से ऑर्डर करें। कुछ चाहिए?',
+    'Busy': 'व्यस्त', 'Free': 'ख़ाली', 'Yours': 'आपकी', 'Someone at this table is already ordering. Pick a free table below, or ask the team.': 'इस टेबल पर कोई पहले से ऑर्डर कर रहा है। नीचे से ख़ाली टेबल चुनें, या टीम से पूछें।',
     'Call staff': 'स्टाफ़ को बुलाएँ', '🔔 Call staff': '🔔 स्टाफ़ को बुलाएँ', 'Water': 'पानी', 'Extra plate': 'एक्स्ट्रा प्लेट', 'Extra teaspoon': 'एक्स्ट्रा चम्मच', 'Other': 'अन्य',
     'What do you need? Pick one or more.': 'आपको क्या चाहिए? एक या ज़्यादा चुनें।', 'Your message': 'आपका संदेश', 'Call staff now': 'अभी स्टाफ़ को बुलाएँ',
     'Table number': 'टेबल नंबर', 'Change': 'बदलें', 'Cancel call': 'कॉल रद्द करें', 'Need something?': 'कुछ चाहिए?', 'Call the team to your table.': 'टीम को अपनी टेबल पर बुलाएँ।',
@@ -1340,6 +1369,15 @@ window.FIREBASE_CONFIG = {
       updateAll();
       renderStaff();
     }, function () {});
+    db.collection('tables').onSnapshot(function (snap) {
+      var m = {};
+      snap.docs.forEach(function (d) {
+        var x = d.data() || {};
+        if (d.id === 'cfg') { if (+x.count >= 1) tableTotal = Math.min(40, +x.count); } else m[d.id] = x;
+      });
+      tableMap = m;
+      renderTablebar();
+    }, function () {});
     db.doc('calls/' + uid).onSnapshot(function (s) {
       callDoc = s.exists ? s.data() : null;
       renderTablebar();
@@ -1779,6 +1817,7 @@ window.FIREBASE_CONFIG = {
       } else if (a === 'closeopts') {
         closeOpts();
       } else if (a === 'open') {
+        if (tableBlocked()) { window.scrollTo(0, 0); return; }
         openSheet('cart');
       } else if (a === 'close') {
         closeSheet();
@@ -1884,6 +1923,14 @@ window.FIREBASE_CONFIG = {
         if (delArm === id) { delArm = ''; offerDelete(id); } else { delArm = id; renderStaff(true); }
       } else if (a === 'lang') {
         setLang(lang === 'hi' ? 'en' : 'hi');
+      } else if (a === 'pickt') {
+        tableNo = id; tableMsg = ''; save('cc-table', { n: id, at: Date.now() });
+        $('f-table').value = id; type = 'dinein';
+        var rr = document.querySelector('input[name="type"][value="dinein"]'); if (rr) rr.checked = true;
+        $('table-field').hidden = false;
+        renderTablebar();
+      } else if (a === 'tfree') {
+        if (db) db.doc('tables/' + id).delete().then(function () {}, function () { staffErr = 'error'; renderStaff(true); });
       } else if (a === 'callopen') {
         openCall();
       } else if (a === 'callclose') {
@@ -2059,7 +2106,15 @@ window.FIREBASE_CONFIG = {
     };
 
     $('place').disabled = true;
-    share('orders', payload).then(function (ok) {
+    var claim = (type === 'dinein' && db && uid) ? claimTable(table, name) : Promise.resolve('ok');
+    claim.then(function (r) {
+      if (r === 'busy') {
+        $('place').disabled = false;
+        tableNo = String(table); tableMsg = 'Table ' + table + ' is busy. Pick a free table.';
+        closeSheet(); renderTablebar(); window.scrollTo(0, 0);
+        return;
+      }
+      return share('orders', payload).then(function (ok) {
       if (ok) upsertCustomer({ phone: phone, name: name, optIn: optIn, stamps: newStamps, order: { total: t.total, free: t.reward > 0 } });
       stamps = newStamps;
       save('corner-cup-stamps', stamps);
@@ -2088,11 +2143,12 @@ window.FIREBASE_CONFIG = {
       $('sheet').scrollTop = 0;
       $('sheet').focus();
     });
+    });
   });
 
   // Staff screen, behind a password kept (salted and hashed) in config/staff
-  var staffData = { orders: [], bookings: [], status: {}, customers: [], calls: [], feedback: [] };
-  var staffLoaded = { orders: false, bookings: false, status: false, customers: false, calls: false, feedback: false };
+  var staffData = { orders: [], bookings: [], status: {}, customers: [], calls: [], feedback: [], tables: {} };
+  var staffLoaded = { tables: false, orders: false, bookings: false, status: false, customers: false, calls: false, feedback: false };
   var seenOrders = {}, callSig = {}, menuNote = '', actx = null;
   var tableCount = Math.min(40, Math.max(1, +load('cc-tables', 10) || 10));
   var staffSubs = null, staffSlow = false, staffErr = '', staffBusy = false, staffTimer = null, staffDirty = false;
@@ -2217,6 +2273,11 @@ window.FIREBASE_CONFIG = {
       });
       staffData.calls = list;
       if (fresh) beep();
+    });
+    sub('tables', function (snap) {
+      var m = {};
+      snap.docs.forEach(function (d) { if (d.id === 'cfg') { if (+(d.data() || {}).count >= 1) tableCount = Math.min(40, +d.data().count); } else m[d.id] = d.data() || {}; });
+      staffData.tables = m;
     });
     sub('feedback', function (snap) { staffData.feedback = flat(snap, 'feedback'); });
     sub('bookings', function (snap) { staffData.bookings = flat(snap, 'bookings'); });
@@ -2471,6 +2532,7 @@ window.FIREBASE_CONFIG = {
     } else if (e.target.id === 't-count') {
       tableCount = Math.min(40, Math.max(1, Math.round(+e.target.value) || 10));
       save('cc-tables', tableCount);
+      if (db) db.doc('tables/cfg').set({ count: tableCount }).then(function () {}, function () {});
       renderStaff(true);
     } else if (e.target.id === 'm-offer') {
       msgOffer = e.target.value;
@@ -2549,6 +2611,16 @@ window.FIREBASE_CONFIG = {
   }
   setInterval(function () { if (MODE === 'staff' && isStaff && pendingCalls().length) beep(); }, 8000);
 
+  function tablesTab() {
+    var h = '<p class="fine">A table becomes busy when a customer orders there. Other phones then see "Table busy" and cannot order. It frees by itself after 90 minutes. Tap Free table when the guests leave.</p><ul class="clist">';
+    for (var n = 1; n <= tableCount; n++) {
+      var d = staffData.tables[n], on = d && Date.now() - (d.at || 0) < TABLE_HOLD;
+      h += '<li class="crow"><div class="mm"><div><p class="c-name">Table ' + n + (on ? ' · Busy' : ' · Free') + '</p>' +
+        (on ? '<small>' + esc(d.name || 'Guest') + ' · ordered ' + Math.max(0, Math.round((Date.now() - d.at) / 60000)) + ' min ago</small>' : '') + '</div></div>' +
+        (on ? '<div class="mact"><button type="button" class="btn-fill" data-action="tfree" data-id="' + n + '">Free table</button></div>' : '') + '</li>';
+    }
+    return h + '</ul>';
+  }
   function kitchenTab(orders) {
     var cols = [['New', 0], ['Preparing', 1], ['Ready', 2]];
     return '<div class="kcols">' + cols.map(function (c) {
@@ -2791,11 +2863,12 @@ window.FIREBASE_CONFIG = {
     var dueN = groupCustomers().filter(function (c) { return c.optIn && c.lastAt && daysAgo(c.lastAt) >= DUE_DAYS; }).length;
     function tab(t, label) { return '<button type="button" class="chip" data-action="stab" data-t="' + t + '" aria-pressed="' + (staffTab === t) + '">' + label + '</button>'; }
     var h = callsBar() + '<div class="stabs">' + tab('orders', 'Orders (' + active.length + ')') + tab('kitchen', 'Kitchen') + tab('bookings', 'Bookings (' + pending.length + ')') +
-      tab('customers', 'Customers' + (dueN ? ' (' + dueN + ' to remind)' : '')) + tab('offers', 'Offers') + tab('menu', 'Menu') + tab('reports', 'Reports') + tab('qr', 'QR code') + '</div>';
+      tab('customers', 'Customers' + (dueN ? ' (' + dueN + ' to remind)' : '')) + tab('offers', 'Offers') + tab('tables', 'Tables') + tab('menu', 'Menu') + tab('reports', 'Reports') + tab('qr', 'QR code') + '</div>';
     var ready = staffLoaded.orders && staffLoaded.bookings && staffLoaded.status && staffLoaded.customers;
     if (staffErr) h += '<p class="snote" role="status">Something went wrong talking to the store (' + esc(staffErr) + '). Check your connection and try again.</p>';
     if (staffTab === 'qr') { el.innerHTML = h + qrTab(); return; }
     if (staffTab === 'menu') { el.innerHTML = h + menuTab(); return; }
+    if (staffTab === 'tables') { el.innerHTML = h + tablesTab(); return; }
     if (!ready && !staffErr) {
       h += '<p class="snote" role="status">' + (staffSlow ? 'Cannot reach live data yet. It will appear as soon as the connection is back.' : 'Connecting to live data...') + '</p>';
       el.innerHTML = h;
