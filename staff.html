@@ -339,7 +339,7 @@ window.FIREBASE_CONFIG = {
   var STALE_MS = 12 * 3600 * 1000;
 
   var byId = {};
-  var MENU = [];
+  var MENU = [], DYN_HI = {};
   var KINDS = { coffee: 'Coffee (counts for free coffee)', drink: 'Drink', food: 'Food' };
   function slug(t) { return String(t).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'x'; }
   function pnum(v) { v = +v; return isFinite(v) && v > 0 ? Math.round(v) : 0; }
@@ -378,6 +378,11 @@ window.FIREBASE_CONFIG = {
       .forEach(function (id) { mk(id, null, cfg[id], '', true); });
     MENU = secs;
     byId = nb;
+    var dh = {};
+    function addHi(en, hi) { if (typeof en === 'string' && en && typeof hi === 'string' && hi.trim()) dh[en] = hi.trim(); }
+    secs.forEach(function (sc) { addHi(sc.cat, (cfg[sc.id] || {}).catHi); });
+    Object.keys(nb).forEach(function (id) { var o = cfg[id] || {}, it = nb[id]; addHi(it.name, o.nameHi); addHi(it.desc, o.descHi); addHi(it.tag, o.tagHi); });
+    DYN_HI = dh;
   }
   rebuildMenu();
 
@@ -811,6 +816,7 @@ window.FIREBASE_CONFIG = {
     return ch ? out : null;
   }
   function trCore(c) {
+    if (Object.prototype.hasOwnProperty.call(DYN_HI, c)) return DYN_HI[c];
     if (Object.prototype.hasOwnProperty.call(HI, c)) return HI[c];
     for (var i = 0; i < HIP.length; i++) {
       var m = HIP[i][0].exec(c);
@@ -1970,6 +1976,12 @@ window.FIREBASE_CONFIG = {
         if (db) db.doc('calls/' + btn.getAttribute('data-uid')).delete().then(function () {}, function () { staffErr = 'error'; renderStaff(true); });
       } else if (a === 'msold') {
         menuWrite(id, { soldOut: !cfgOf(id).soldOut }).then(function () { renderStaff(true); });
+      } else if (a === 'autohi') {
+        autoHindi(id);
+      } else if (a === 'dlcust') {
+        exportCustomers();
+      } else if (a === 'dlorders') {
+        exportOrders();
       } else if (a === 'medit') {
         menuEdit = id; secEdit = ''; menuDraft = {}; menuNote = ''; menuConfirm = ''; renderStaff(true);
       } else if (a === 'mnew') {
@@ -2389,6 +2401,29 @@ window.FIREBASE_CONFIG = {
       '<small>' + c.orders + (c.orders === 1 ? ' order' : ' orders') + ' · ' + fmt(c.spent) + ' · ' + c.stamps + ' of ' + STAMPS_FULL + ' stamps' + (c.free ? ' · ' + c.free + ' free coffee used' : '') + '</small>' +
       '<small>' + esc(agoText(c)) + '</small></div><div class="c-act">' + act + '</div></li>';
   }
+  function csvCell(v) { v = String(v == null ? '' : v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+  function downloadCsv(fileName, rows) {
+    var text = '\ufeff' + rows.map(function (r) { return r.map(csvCell).join(','); }).join('\r\n');
+    var url = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' })), a = document.createElement('a');
+    a.href = url; a.download = fileName; document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 1500);
+  }
+  function dayStamp() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+  function exportCustomers() {
+    var rows = [['Name', 'Mobile', 'Orders', 'Total spent (Rs)', 'Stamps', 'Free coffees', 'Last order', 'Days since last order', 'OK to message on WhatsApp']];
+    groupCustomers().sort(function (a, b) { return b.lastAt - a.lastAt; }).forEach(function (c) {
+      rows.push([c.name || '', showPhone(c.phone), c.orders, Math.round(c.spent), c.stamps, c.free, c.lastAt ? new Date(c.lastAt).toLocaleDateString('en-IN') : '', c.lastAt ? daysAgo(c.lastAt) : '', c.optIn ? 'Yes' : 'No']);
+    });
+    downloadCsv('corner-cup-customers-' + dayStamp() + '.csv', rows);
+  }
+  function exportOrders() {
+    var rows = [['Date', 'Time', 'Token', 'Name', 'Mobile', 'Type', 'Table', 'Items', 'Total (Rs)', 'Status']];
+    staffData.orders.slice().sort(function (a, b) { return b.placedAt - a.placedAt; }).forEach(function (o) {
+      rows.push([new Date(o.placedAt).toLocaleDateString('en-IN'), clock(o.placedAt), o.token, o.name, showPhone(o.phone), o.type === 'dinein' ? 'Dine-in' : 'Pickup', o.type === 'dinein' ? o.table : '',
+        (o.items || []).map(function (i) { return i.t; }).join('; '), Math.round(o.total), STAGE_NAMES[Math.min(3, staffStage(o))]]);
+    });
+    downloadCsv('corner-cup-orders-' + dayStamp() + '.csv', rows);
+  }
   function customersTab() {
     var all = groupCustomers();
     var due = all.filter(function (c) { return c.lastAt && daysAgo(c.lastAt) >= DUE_DAYS; });
@@ -2400,6 +2435,7 @@ window.FIREBASE_CONFIG = {
       '<div class="stat"><b>' + due.filter(function (c) { return c.optIn; }).length + '</b><span>Not back in ' + DUE_DAYS + '+ days</span></div>' +
       '<div class="stat"><b>' + close.length + '</b><span>4+ stamps</span></div>' +
       '<div class="stat"><b>' + optOut.length + '</b><span>Opted out</span></div></div>';
+    h += '<div class="t-btns"><button type="button" class="btn-fill" data-action="dlcust">⬇ Download customer list (Excel / Google Sheets)</button></div>';
     var offs = activeOffers();
     h += '<div class="panel"><h3>WhatsApp message</h3>' +
       '<div class="field"><label class="fl" for="m-offer">Offer to include</label><select id="m-offer"><option value="">No offer</option>' +
@@ -2684,6 +2720,12 @@ window.FIREBASE_CONFIG = {
       '<div class="field"><label class="fl" for="mi-sec">Section</label><select id="mi-sec">' + secOpts + '</select></div></div>' +
       '<div class="pair"><div class="field"><label class="fl" for="mi-badge">Badge</label><select id="mi-badge">' + opt('', 'No badge', v('badge', bd)) + opt('bestseller', 'Bestseller', v('badge', bd)) + opt('chef', "Chef's pick", v('badge', bd)) + opt('new', 'New', v('badge', bd)) + '</select></div>' +
       '<div class="field"><label class="fl" for="mi-tag">Own tag (optional)</label><input id="mi-tag" type="text" maxlength="20" value="' + esc(v('tag', isNew ? '' : it.tag)) + '" placeholder="e.g. Spicy"></div></div>';
+    var cf0 = isNew ? {} : cfgOf(it.id);
+    h += '<p class="fine">Hindi for customers (optional). Leave empty to show English.</p>' +
+      '<div class="field"><label class="fl" for="mi-nameHi">Name in Hindi</label><input id="mi-nameHi" type="text" value="' + esc(v('nameHi', cf0.nameHi || '')) + '" placeholder="जैसे: दाल मखनी"></div>' +
+      '<div class="field"><label class="fl" for="mi-descHi">Description in Hindi</label><input id="mi-descHi" type="text" value="' + esc(v('descHi', cf0.descHi || '')) + '"></div>' +
+      '<div class="field"><label class="fl" for="mi-tagHi">Own tag in Hindi</label><input id="mi-tagHi" type="text" value="' + esc(v('tagHi', cf0.tagHi || '')) + '"></div>' +
+      '<div class="tb-row"><button type="button" class="btn-line" data-action="autohi" data-id="item">Auto Hindi</button><span class="fine" id="hi-st" role="status"></span></div>';
     if (isNew) {
       h += '<div class="field"><label class="fl" for="mi-custom">Choices for customer</label><select id="mi-custom">' + opt('', 'None (just add)', v('custom', '')) + opt('plain', 'Size and sugar', v('custom', '')) + opt('milk', 'Size, milk and sugar', v('custom', '')) + '</select></div>';
       if (assets) h += '<div class="tb-row">' + (menuDraft.img ? '<img class="thumb" src="' + esc(menuDraft.img) + '" alt="">' : '') + '<label class="btn-line filebtn">' + (menuDraft.img ? 'Change photo' : 'Add photo') + '<input type="file" accept="image/*" data-draftfile="1"></label></div>';
@@ -2710,6 +2752,8 @@ window.FIREBASE_CONFIG = {
     var d = menuDraft.for === 'sec:' + (isNew ? '+new' : sc.id) ? menuDraft : {};
     var kind = d.kind || (isNew ? 'food' : sc.kind);
     return '<div class="crow editform"><div class="field"><label class="fl" for="sc-name">Section name</label><input id="sc-name" type="text" maxlength="30" value="' + esc(d.name != null ? d.name : (isNew ? '' : sc.cat)) + '" placeholder="e.g. Dinner"></div>' +
+      '<div class="field"><label class="fl" for="sc-nameHi">Section name in Hindi (optional)</label><input id="sc-nameHi" type="text" maxlength="40" value="' + esc(d.nameHi != null ? d.nameHi : (isNew ? '' : (cfgOf(sc.id).catHi || ''))) + '" placeholder="जैसे: डिनर"></div>' +
+      '<div class="tb-row"><button type="button" class="btn-line" data-action="autohi" data-id="sec">Auto Hindi</button><span class="fine" id="hi-st" role="status"></span></div>' +
       '<div class="field"><label class="fl" for="sc-kind">Type of items</label><select id="sc-kind">' + Object.keys(KINDS).map(function (k) { return opt(k, KINDS[k], kind); }).join('') + '</select></div>' +
       '<div class="tb-row"><button type="button" class="btn-fill" data-action="secsave" data-id="' + (isNew ? '+new' : sc.id) + '">Save</button><button type="button" class="btn-line" data-action="mcancel">Cancel</button></div></div>';
   }
@@ -2736,8 +2780,27 @@ window.FIREBASE_CONFIG = {
   function numOrEmpty(x) { return x === '' ? '' : x; }
   function readItemDraft(forId) {
     var g = function (id) { var e = $(id); return e ? e.value : ''; };
-    menuDraft = { for: forId, name: g('mi-name'), desc: g('mi-desc'), price: g('mi-price'), offer: g('mi-offer'), veg: g('mi-veg'), sec: g('mi-sec'), badge: g('mi-badge'), tag: g('mi-tag'), custom: g('mi-custom'), img: menuDraft.img || '' };
+    menuDraft = { for: forId, name: g('mi-name'), desc: g('mi-desc'), price: g('mi-price'), offer: g('mi-offer'), veg: g('mi-veg'), sec: g('mi-sec'), badge: g('mi-badge'), tag: g('mi-tag'), nameHi: g('mi-nameHi'), descHi: g('mi-descHi'), tagHi: g('mi-tagHi'), custom: g('mi-custom'), img: menuDraft.img || '' };
     return menuDraft;
+  }
+  function hiTranslate(text) {
+    return fetch('https://api.mymemory.translated.net/get?langpair=en%7Chi&q=' + encodeURIComponent(text)).then(function (r) { return r.json(); }).then(function (j) {
+      var t = j && j.responseData && j.responseData.translatedText;
+      if (!t || /MYMEMORY|QUERY LENGTH|INVALID/i.test(t)) throw new Error('bad');
+      return t;
+    });
+  }
+  function autoHindi(kind) {
+    var pairs = kind === 'sec' ? [['sc-name', 'sc-nameHi']] : [['mi-name', 'mi-nameHi'], ['mi-desc', 'mi-descHi'], ['mi-tag', 'mi-tagHi']];
+    var st = $('hi-st'), jobs = [];
+    pairs.forEach(function (p) {
+      var src = $(p[0]), dst = $(p[1]);
+      if (src && dst && src.value.trim() && !dst.value.trim()) jobs.push(hiTranslate(src.value.trim()).then(function (t) { dst.value = t; }));
+    });
+    if (!jobs.length) { if (st) st.textContent = 'Write the English first (empty Hindi boxes get filled).'; return; }
+    if (st) st.textContent = 'Translating...';
+    Promise.all(jobs).then(function () { if (st) st.textContent = 'Done. Check the Hindi and fix it if needed.'; },
+      function () { if (st) st.textContent = 'Auto Hindi did not work now. Type the Hindi yourself.'; });
   }
   function itemSave(id) {
     var isNew = id === '+new', d = readItemDraft(id);
@@ -2745,7 +2808,7 @@ window.FIREBASE_CONFIG = {
     if (!d.name.trim()) { menuNote = 'Write the item name.'; return renderStaff(true); }
     if (!price) { menuNote = 'Enter the price in rupees.'; return renderStaff(true); }
     if (offer && offer >= price) { menuNote = 'Offer price must be less than the price. Leave it empty for no offer.'; return renderStaff(true); }
-    var patch = { name: d.name.trim(), desc: d.desc.trim(), price: price, offer: offer, veg: d.veg !== '0', sec: d.sec, badge: d.badge, tag: d.tag.trim() };
+    var patch = { name: d.name.trim(), desc: d.desc.trim(), price: price, offer: offer, veg: d.veg !== '0', sec: d.sec, badge: d.badge, tag: d.tag.trim(), nameHi: (d.nameHi || '').trim(), descHi: (d.descHi || '').trim(), tagHi: (d.tagHi || '').trim() };
     if (isNew) {
       id = 'own-' + Date.now().toString(36);
       patch.own = true; patch.at = Date.now(); patch.soldOut = false; patch.custom = d.custom || ''; patch.img = d.img || '';
@@ -2757,9 +2820,10 @@ window.FIREBASE_CONFIG = {
   }
   function secSave(id) {
     var isNew = id === '+new', name = ($('sc-name') ? $('sc-name').value : '').trim(), kind = $('sc-kind') ? $('sc-kind').value : 'food';
-    menuDraft = { for: 'sec:' + id, name: name, kind: kind };
+    var nameHi = $('sc-nameHi') ? $('sc-nameHi').value.trim() : '';
+    menuDraft = { for: 'sec:' + id, name: name, kind: kind, nameHi: nameHi };
     if (!name) { menuNote = 'Write the section name.'; return renderStaff(true); }
-    var patch = { cat: name, kind: kind };
+    var patch = { cat: name, kind: kind, catHi: nameHi };
     if (isNew) {
       id = 'sec-' + slug(name) + '-' + Date.now().toString(36).slice(-4);
       patch.order = MENU.reduce(function (m, c) { return Math.max(m, c.order); }, 0) + 10;
@@ -2883,7 +2947,8 @@ window.FIREBASE_CONFIG = {
       return;
     }
     if (staffTab === 'orders') {
-      h += '<div class="sfilter"><button type="button" class="chip" data-action="sfilter" data-t="active" aria-pressed="' + (ordersFilter === 'active') + '">Active (' + active.length + ')</button>' +
+      h += '<div class="t-btns"><button type="button" class="btn-line" data-action="dlorders">⬇ Download all orders (Excel / Google Sheets)</button></div>' +
+        '<div class="sfilter"><button type="button" class="chip" data-action="sfilter" data-t="active" aria-pressed="' + (ordersFilter === 'active') + '">Active (' + active.length + ')</button>' +
         '<button type="button" class="chip" data-action="sfilter" data-t="done" aria-pressed="' + (ordersFilter === 'done') + '">Completed (' + done.length + ')</button></div>';
       var list = ordersFilter === 'active'
         ? active.sort(function (a, b) { return a.placedAt - b.placedAt; })
