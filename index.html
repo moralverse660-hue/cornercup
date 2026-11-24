@@ -283,6 +283,7 @@ window.FIREBASE_CONFIG = {
   messagingSenderId: "87722056745",
   appId: "1:87722056745:web:7b541b5d5e217b7953d038"
 };
+
 </script>
 <script>window.CC_MODE = 'customer';</script>
 <script>
@@ -291,7 +292,7 @@ window.FIREBASE_CONFIG = {
   // Sample menu. Edit names, descriptions and prices here.
   // kind: coffee and drink count for the free coffee and the combo deal, food pairs with a drink.
   // custom: 'milk' = size, milk and sugar choices. 'plain' = size and sugar only.
-  var MENU = [
+  var BASE_MENU = [
     { cat: 'Coffee', kind: 'coffee', items: [
       { id: 'filter', name: 'Filter Coffee', desc: 'South Indian decoction with frothed milk', price: 90, veg: true, custom: 'milk' },
       { id: 'cappu', name: 'Cappuccino', desc: 'Double shot, steamed milk, thick foam', price: 160, veg: true, custom: 'milk' },
@@ -338,7 +339,47 @@ window.FIREBASE_CONFIG = {
   var STALE_MS = 12 * 3600 * 1000;
 
   var byId = {};
-  MENU.forEach(function (c) { c.items.forEach(function (i) { i.kind = c.kind; byId[i.id] = i; }); });
+  var MENU = [];
+  var KINDS = { coffee: 'Coffee (counts for free coffee)', drink: 'Drink', food: 'Food' };
+  function slug(t) { return String(t).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'x'; }
+  function pnum(v) { v = +v; return isFinite(v) && v > 0 ? Math.round(v) : 0; }
+  // Merge the built-in menu with whatever staff saved in menu/* (sections sec-*, own items own-*)
+  function rebuildMenu() {
+    var cfg = (typeof menuCfg === 'object' && menuCfg) || {}, secs = [], map = {}, k;
+    BASE_MENU.forEach(function (c, ci) {
+      var id = 'sec-' + slug(c.cat), o = cfg[id] || {};
+      var sc = { id: id, cat: (typeof o.cat === 'string' && o.cat) ? o.cat : c.cat, kind: KINDS[o.kind] ? o.kind : c.kind,
+        hidden: !!o.hidden, builtin: true, order: typeof o.order === 'number' ? o.order : ci * 10, items: [] };
+      secs.push(sc); map[id] = sc;
+    });
+    Object.keys(cfg).forEach(function (id) {
+      var o = cfg[id];
+      if (id.indexOf('sec-') !== 0 || map[id] || !o || !o.cat) return;
+      var sc = { id: id, cat: String(o.cat), kind: KINDS[o.kind] ? o.kind : 'food', hidden: !!o.hidden, builtin: false,
+        order: typeof o.order === 'number' ? o.order : 1000, items: [] };
+      secs.push(sc); map[id] = sc;
+    });
+    secs.sort(function (a, b) { return a.order - b.order; });
+    var nb = {}, fall = secs[0];
+    function mk(id, base, o, secId, own) {
+      var list = pnum(o.price) || (base ? base.price : 0), offer = pnum(o.offer);
+      var sc = map[o.sec] ? map[o.sec] : (map[secId] || fall);
+      var it = { id: id, name: o.name || (base ? base.name : 'Item'), desc: typeof o.desc === 'string' ? o.desc : (base ? base.desc : ''),
+        listPrice: list, price: (offer && offer < list) ? offer : list, veg: typeof o.veg === 'boolean' ? o.veg : (base ? base.veg : true),
+        custom: base ? base.custom : (o.custom === 'milk' || o.custom === 'plain' ? o.custom : undefined),
+        hidden: !!o.hidden, own: own, tag: typeof o.tag === 'string' ? o.tag : '', sec: sc.id, kind: sc.kind, at: o.at || 0 };
+      nb[id] = it; sc.items.push(it);
+    }
+    BASE_MENU.forEach(function (c) {
+      c.items.forEach(function (i) { mk(i.id, i, cfg[i.id] || {}, 'sec-' + slug(c.cat), false); });
+    });
+    Object.keys(cfg).filter(function (id) { return id.indexOf('own-') === 0 && cfg[id] && cfg[id].name; })
+      .sort(function (a, b) { return (cfg[a].at || 0) - (cfg[b].at || 0); })
+      .forEach(function (id) { mk(id, null, cfg[id], '', true); });
+    MENU = secs;
+    byId = nb;
+  }
+  rebuildMenu();
 
   function $(id) { return document.getElementById(id); }
   function find(list, id) { for (var k = 0; k < list.length; k++) if (list[k].id === id) return list[k]; return null; }
@@ -420,13 +461,20 @@ window.FIREBASE_CONFIG = {
   var db = null, uid = null, isStaff = false, watching = false, myStatus = {};
   var sharedOrders = [], sharedBooks = [];
   var custDoc = null, offerList = [], offersLoaded = false, dl = null;
-  var menuCfg = {}, callDoc = null, assets = null, tableNo = '', callBusy = false, callNote = '', goneNote = '';
+  var menuCfg = load('cc-menucache', {}), callDoc = null, assets = null, tableNo = '', callBusy = false, callNote = '', goneNote = '';
   var ratings = load('cc-ratings', {}), rateDraft = {};
   if (!ratings || typeof ratings !== 'object' || Array.isArray(ratings)) ratings = {};
   var soundOn = load('cc-sound', true) !== false;
   var lang = load('cc-lang', 'en') === 'hi' ? 'hi' : 'en';
 
   // Menu extras kept by staff in menu/<itemId>: sold out, badge, photo
+  if (!menuCfg || typeof menuCfg !== 'object' || Array.isArray(menuCfg)) menuCfg = {};
+  rebuildMenu();
+  function cacheMenu() {
+    var m = {};
+    Object.keys(menuCfg).forEach(function (k) { var o = Object.assign({}, menuCfg[k]); delete o.img; m[k] = o; });
+    save('cc-menucache', m);
+  }
   var BADGES = { bestseller: 'Bestseller', chef: "Chef's pick", 'new': 'New' };
   var DEFAULT_BADGE = { cappu: 'bestseller', masala: 'bestseller', paneer: 'bestseller', flat: 'chef', brownie: 'chef', matcha: 'new' };
   function cfgOf(id) { return menuCfg[id] || {}; }
@@ -438,7 +486,9 @@ window.FIREBASE_CONFIG = {
   function pruneSoldOut() {
     var gone = [];
     Object.keys(cart).forEach(function (k) {
-      if (cfgOf(cart[k].id).soldOut) { gone.push(byId[cart[k].id].name); delete cart[k]; }
+      var bi = byId[cart[k].id];
+      if (!bi) { delete cart[k]; return; }
+      if (cfgOf(cart[k].id).soldOut || bi.hidden) { gone.push(bi.name); delete cart[k]; }
     });
     if (gone.length) goneNote = 'Sold out right now: ' + gone.join(', ') + '. Remove it to continue.';
     renderGone();
@@ -471,42 +521,93 @@ window.FIREBASE_CONFIG = {
     }
     renderTablebar();
   }
-  var CALLS = [['waiter', 'Call waiter', '✓ Waiter called'], ['water', 'Bring water', '✓ Water requested'], ['bill', 'Bring the bill', '✓ Bill requested']];
+  var CALLS = [['water', 'Water'], ['plate', 'Extra plate'], ['spoon', 'Extra teaspoon'], ['bill', 'Bring the bill'], ['other', 'Other']];
+  var callDraft = { sel: {}, text: '', table: '', err: '' };
+  function callList(c) {
+    if (!c || !c.reqs) return [];
+    return CALLS.filter(function (r) { return c.reqs[r[0]]; }).map(function (r) {
+      return r[0] === 'other' && c.note ? 'Other: ' + c.note : r[1];
+    });
+  }
   function renderTablebar() {
     var el = $('tablebar');
-    if (!tableNo) { el.hidden = true; el.innerHTML = ''; return; }
-    el.hidden = false;
-    var reqs = (callDoc && callDoc.reqs) || {};
-    var h = '<div><strong>Table ' + esc(tableNo) + '</strong><p>Order from your seat. Need something?</p></div>';
-    if (db && uid) {
-      h += '<div class="tb-row">' + CALLS.map(function (c) {
-        var on = !!reqs[c[0]];
-        return '<button type="button" class="' + (on ? 'btn-fill' : 'btn-line') + '" data-action="call" data-id="' + c[0] + '" aria-pressed="' + on + '">' + (on ? c[2] : c[1]) + '</button>';
-      }).join('') + '</div>';
-      if (callNote) h += '<p class="fine" role="status">' + esc(callNote) + '</p>';
-      else if (Object.keys(reqs).length) h += '<p class="fine">Tap a button again to cancel.</p>';
-    } else {
-      h += '<p class="fine">Need help? Ask the team at the counter.</p>';
+    if (!db || !uid) {
+      if (!tableNo) { el.hidden = true; el.innerHTML = ''; return; }
+      el.hidden = false;
+      el.innerHTML = '<div><strong>Table ' + esc(tableNo) + '</strong><p>Need help? Ask the team at the counter.</p></div>';
+      return;
     }
-    h += '<div class="tb-row"><button type="button" class="linkbtn" data-action="notable">Not your table?</button></div>';
+    el.hidden = false;
+    var pend = callList(callDoc), h = '';
+    if (tableNo) h += '<div><strong>Table ' + esc(tableNo) + '</strong><p>Order from your seat. Need something?</p></div>';
+    else h += '<div><strong>Need something?</strong><p>Call the team to your table.</p></div>';
+    if (pend.length) {
+      h += '<p class="fine" role="status">✓ Staff called: ' + esc(pend.join(', ')) + '</p>';
+      h += '<div class="tb-row"><button type="button" class="btn-line" data-action="callopen">Change</button><button type="button" class="btn-line" data-action="callcancel">Cancel call</button></div>';
+    } else {
+      h += '<div class="tb-row"><button type="button" class="btn-fill" data-action="callopen">🔔 Call staff</button></div>';
+    }
+    if (callNote) h += '<p class="fine" role="status">' + esc(callNote) + '</p>';
+    if (tableNo) h += '<div class="tb-row"><button type="button" class="linkbtn" data-action="notable">Not your table?</button></div>';
     el.innerHTML = h;
   }
-  function callAction(kind) {
-    if (!db || !uid || callBusy || !tableNo) return;
+  function ensureCallSheet() {
+    if ($('scrim5')) return;
+    var d = document.createElement('div');
+    d.className = 'scrim'; d.id = 'scrim5'; d.hidden = true;
+    d.innerHTML = '<section class="sheet" id="sheet5" role="dialog" aria-modal="true" aria-labelledby="call-title" tabindex="-1">' +
+      '<div class="sheet-head"><h2 id="call-title">Call staff</h2><button type="button" class="close" data-action="callclose">Close</button></div>' +
+      '<p class="fine">What do you need? Pick one or more.</p><div id="call-body"></div></section>';
+    document.body.appendChild(d);
+  }
+  function renderCallSheet() {
+    var h = '<div class="tb-row callchips" role="group" aria-label="Reasons">' + CALLS.map(function (r) {
+      return '<button type="button" class="chip" data-action="callpick" data-id="' + r[0] + '" aria-pressed="' + !!callDraft.sel[r[0]] + '">' + r[1] + '</button>';
+    }).join('') + '</div>';
+    if (callDraft.sel.other) h += '<div class="field"><label class="fl" for="c-text">Your message</label><textarea id="c-text" maxlength="200" placeholder="Type what you need">' + esc(callDraft.text) + '</textarea></div>';
+    if (!tableNo) h += '<div class="field"><label class="fl" for="c-table">Table number</label><input id="c-table" type="text" inputmode="numeric" maxlength="3" placeholder="e.g. 4" value="' + esc(callDraft.table) + '"></div>';
+    if (callDraft.err) h += '<p class="err" role="alert">' + esc(callDraft.err) + '</p>';
+    h += '<button type="button" class="place" data-action="callsend">Call staff now</button>';
+    $('call-body').innerHTML = h;
+  }
+  function openCall() {
+    ensureCallSheet();
+    opener = document.activeElement;
+    callDraft = { sel: {}, text: '', table: '', err: '' };
+    if (callDoc && callDoc.reqs) { Object.keys(callDoc.reqs).forEach(function (k) { callDraft.sel[k] = true; }); callDraft.text = callDoc.note || ''; }
+    renderCallSheet();
+    $('scrim5').hidden = false;
+    lockOn();
+    $('sheet5').scrollTop = 0;
+    $('sheet5').focus();
+  }
+  function closeCall() {
+    if (!$('scrim5') || $('scrim5').hidden) return;
+    $('scrim5').hidden = true;
+    lockOff();
+    if (opener && opener.focus && document.contains(opener) && !opener.hidden) opener.focus();
+    opener = null;
+  }
+  function sendCall() {
+    if (!db || !uid || callBusy) return;
+    var t = $('c-text'), tb = $('c-table');
+    if (t) callDraft.text = t.value;
+    if (tb) callDraft.table = tb.value;
+    var keys = Object.keys(callDraft.sel).filter(function (k) { return callDraft.sel[k]; });
+    var tno = tableNo || String(callDraft.table || '').replace(/\D/g, '').slice(0, 3);
+    if (!keys.length) { callDraft.err = 'Pick at least one reason.'; renderCallSheet(); return; }
+    if (callDraft.sel.other && !String(callDraft.text).trim()) { callDraft.err = 'Write your message in the box.'; renderCallSheet(); return; }
+    if (!tno) { callDraft.err = 'Enter your table number so we can find you.'; renderCallSheet(); return; }
     callBusy = true; callNote = '';
-    var ref = db.doc('calls/' + uid);
-    ref.get().then(function (s) {
-      var d = s.exists ? s.data() : {};
-      var reqs = Object.assign({}, d.reqs || {});
-      if (reqs[kind]) delete reqs[kind]; else reqs[kind] = Date.now();
-      if (!Object.keys(reqs).length) return ref.delete();
-      return ref.set({ uid: uid, table: tableNo, name: savedName || '', reqs: reqs });
-    }).then(function () {}, function () { callNote = 'Could not send. Try again.'; }).then(function () {
-      callBusy = false;
-      renderTablebar();
-      var b = document.querySelector('#tablebar [data-id="' + kind + '"]');
-      if (b) b.focus();
-    });
+    var reqs = {}, now = Date.now();
+    keys.forEach(function (k) { reqs[k] = now; });
+    var doc = { uid: uid, table: tno, name: savedName || '', reqs: reqs, note: callDraft.sel.other ? String(callDraft.text).trim().slice(0, 200) : '', at: now };
+    db.doc('calls/' + uid).set(doc).then(function () { callNote = 'Staff has been called. They are coming.'; closeCall(); },
+      function () { callDraft.err = 'Could not send. Try again.'; renderCallSheet(); }).then(function () { callBusy = false; renderTablebar(); });
+  }
+  function cancelCall() {
+    if (!db || !uid) return;
+    db.doc('calls/' + uid).delete().then(function () { callNote = 'Call cancelled.'; }, function () { callNote = 'Could not cancel. Try again.'; }).then(renderTablebar);
   }
 
   // Rating after an order
@@ -636,6 +737,12 @@ window.FIREBASE_CONFIG = {
     'Baked fresh each morning': 'हर सुबह ताज़ा बेक',
     'One thick slice, lightly toasted': 'एक मोटा स्लाइस, हल्का टोस्टेड',
     'Order from your seat. Need something?': 'अपनी सीट से ऑर्डर करें। कुछ चाहिए?',
+    'Call staff': 'स्टाफ़ को बुलाएँ', '🔔 Call staff': '🔔 स्टाफ़ को बुलाएँ', 'Water': 'पानी', 'Extra plate': 'एक्स्ट्रा प्लेट', 'Extra teaspoon': 'एक्स्ट्रा चम्मच', 'Other': 'अन्य',
+    'What do you need? Pick one or more.': 'आपको क्या चाहिए? एक या ज़्यादा चुनें।', 'Your message': 'आपका संदेश', 'Call staff now': 'अभी स्टाफ़ को बुलाएँ',
+    'Table number': 'टेबल नंबर', 'Change': 'बदलें', 'Cancel call': 'कॉल रद्द करें', 'Need something?': 'कुछ चाहिए?', 'Call the team to your table.': 'टीम को अपनी टेबल पर बुलाएँ।',
+    'Pick at least one reason.': 'कम से कम एक कारण चुनें।', 'Write your message in the box.': 'डिब्बे में अपना संदेश लिखें।',
+    'Enter your table number so we can find you.': 'अपना टेबल नंबर डालें ताकि हम आप तक पहुँचें।', 'Staff has been called. They are coming.': 'स्टाफ़ को बुला लिया है। वे आ रहे हैं।',
+    'Call cancelled.': 'कॉल रद्द हो गई।', 'Could not send. Try again.': 'भेज नहीं पाए। फिर कोशिश करें।',
     'Call waiter': 'वेटर बुलाएँ', 'Bring water': 'पानी मँगवाएँ', 'Bring the bill': 'बिल मँगवाएँ',
     '✓ Waiter called': '✓ वेटर को बुलाया', '✓ Water requested': '✓ पानी मँगवाया', '✓ Bill requested': '✓ बिल मँगवाया',
     'Tap a button again to cancel.': 'रद्द करने के लिए बटन फिर से दबाएँ।', 'Not your table?': 'यह आपकी टेबल नहीं?',
@@ -924,13 +1031,14 @@ window.FIREBASE_CONFIG = {
     var c = cfgOf(i.id), bd = badgeOf(i.id);
     return '<li class="item' + (c.img ? ' has-img' : '') + (c.soldOut ? ' out' : '') + '">' + (c.img ? '<img class="thumb" src="' + esc(c.img) + '" alt="" loading="lazy">' : '') +
       '<div class="info"><div class="nm"><span class="mark ' + (i.veg ? 'veg' : 'nonveg') + '" role="img" aria-label="' + (i.veg ? 'Vegetarian' : 'Non-vegetarian') + '"></span><h3>' + esc(i.name) + '</h3>' +
-      (bd ? '<span class="tag ' + bd + '">' + esc(BADGES[bd]) + '</span>' : '') +
+      (bd ? '<span class="tag ' + bd + '">' + esc(BADGES[bd]) + '</span>' : '') + (i.tag ? '<span class="tag own">' + esc(i.tag) + '</span>' : '') +
       '<button type="button" class="fav" data-action="fav" data-id="' + i.id + '" aria-pressed="' + fav + '" aria-label="Favourite ' + esc(i.name) + '">' + HEART + '</button></div>' +
-      '<p>' + esc(i.desc) + '</p><span class="price">' + (i.custom ? 'from ' : '') + fmt(i.price) + '</span></div>' +
+      '<p>' + esc(i.desc) + '</p><span class="price">' + (i.custom ? 'from ' : '') + (i.listPrice > i.price ? '<s class="was">' + fmt(i.listPrice) + '</s> ' : '') + fmt(i.price) + '</span></div>' +
       '<div class="ctl" data-ctl="' + i.id + '">' + menuCtl(i.id) + '</div></li>';
   }
   function visibleItems(c) {
     return c.items.filter(function (i) {
+      if (i.hidden) return false;
       if (vegOnly && !i.veg) return false;
       if (favOnly && !favs[i.id]) return false;
       if (q && (i.name + ' ' + i.desc).toLowerCase().indexOf(q) < 0) return false;
@@ -941,7 +1049,7 @@ window.FIREBASE_CONFIG = {
   function renderMenu() {
     var html = '', chipHtml = '', shown = 0;
     MENU.forEach(function (c, ci) {
-      var items = visibleItems(c);
+      var items = c.hidden ? [] : visibleItems(c);
       if (!items.length) return;
       shown++;
       html += '<section class="cat" id="cat-' + ci + '" data-i="' + ci + '" aria-labelledby="h-' + ci + '"><h2 id="h-' + ci + '">' + esc(c.cat) + '</h2><ul>' + items.map(itemHTML).join('') + '</ul></section>';
@@ -1225,6 +1333,8 @@ window.FIREBASE_CONFIG = {
       var m = {};
       snap.docs.forEach(function (d) { m[d.id] = d.data() || {}; });
       menuCfg = m;
+      cacheMenu();
+      rebuildMenu();
       pruneSoldOut();
       renderMenu();
       updateAll();
@@ -1529,7 +1639,7 @@ window.FIREBASE_CONFIG = {
     var added = 0;
     ((o.rec && o.rec.lines) || []).forEach(function (l) {
       var it = byId[l.id];
-      if (!it || cfgOf(l.id).soldOut) return;
+      if (!it || it.hidden || cfgOf(l.id).soldOut) return;
       var line = { id: l.id, size: it.custom ? l.size : null, milk: it.custom === 'milk' ? l.milk : null, sugar: it.custom ? l.sugar : null, qty: l.q };
       if (it.custom && !(find(SIZES, line.size) && find(SUGARS, line.sugar) && (it.custom !== 'milk' || find(MILKS, line.milk)))) return;
       var key = keyOf(l.id, line);
@@ -1774,8 +1884,21 @@ window.FIREBASE_CONFIG = {
         if (delArm === id) { delArm = ''; offerDelete(id); } else { delArm = id; renderStaff(true); }
       } else if (a === 'lang') {
         setLang(lang === 'hi' ? 'en' : 'hi');
-      } else if (a === 'call') {
-        callAction(id);
+      } else if (a === 'callopen') {
+        openCall();
+      } else if (a === 'callclose') {
+        closeCall();
+      } else if (a === 'callpick') {
+        var ct = $('c-text'); if (ct) callDraft.text = ct.value;
+        var cb = $('c-table'); if (cb) callDraft.table = cb.value;
+        callDraft.sel[id] = !callDraft.sel[id]; callDraft.err = '';
+        renderCallSheet();
+        var pk = document.querySelector('#call-body [data-id="' + id + '"]'); if (pk) pk.focus();
+        if (id === 'other' && callDraft.sel.other && $('c-text')) $('c-text').focus();
+      } else if (a === 'callsend') {
+        sendCall();
+      } else if (a === 'callcancel') {
+        cancelCall();
       } else if (a === 'notable') {
         tableNo = '';
         save('cc-table', null);
@@ -1800,6 +1923,41 @@ window.FIREBASE_CONFIG = {
         if (db) db.doc('calls/' + btn.getAttribute('data-uid')).delete().then(function () {}, function () { staffErr = 'error'; renderStaff(true); });
       } else if (a === 'msold') {
         menuWrite(id, { soldOut: !cfgOf(id).soldOut }).then(function () { renderStaff(true); });
+      } else if (a === 'medit') {
+        menuEdit = id; secEdit = ''; menuDraft = {}; menuNote = ''; menuConfirm = ''; renderStaff(true);
+      } else if (a === 'mnew') {
+        menuEdit = '+new'; secEdit = ''; menuDraft = { for: '+new', sec: id || '' }; menuNote = ''; renderStaff(true);
+        var mn = $('mi-name'); if (mn) mn.focus();
+      } else if (a === 'mcancel') {
+        menuEdit = ''; secEdit = ''; menuDraft = {}; menuNote = ''; menuConfirm = ''; renderStaff(true);
+      } else if (a === 'msave') {
+        itemSave(id);
+      } else if (a === 'mhide') {
+        menuWrite(id, { hidden: !byId[id].hidden }).then(function () { renderStaff(true); });
+      } else if (a === 'mdel') {
+        if (menuConfirm === id) {
+          menuConfirm = '';
+          db.doc('menu/' + id).delete().then(function () { menuNote = 'Item deleted.'; menuEdit = ''; }, function () { menuNote = 'Could not delete. Try again.'; }).then(function () { renderStaff(true); });
+        } else { menuConfirm = id; renderStaff(true); }
+      } else if (a === 'secnew') {
+        secEdit = '+new'; menuEdit = ''; menuDraft = { for: 'sec:+new' }; menuNote = ''; renderStaff(true);
+        var sn = $('sc-name'); if (sn) sn.focus();
+      } else if (a === 'secedit') {
+        secEdit = id; menuEdit = ''; menuDraft = {}; menuNote = ''; renderStaff(true);
+      } else if (a === 'secsave') {
+        secSave(id);
+      } else if (a === 'sechide') {
+        var shc = MENU.filter(function (c) { return c.id === id; })[0];
+        menuWrite(id, { hidden: !(shc && shc.hidden) }).then(function () { renderStaff(true); });
+      } else if (a === 'secup' || a === 'secdown') {
+        secMove(id, a === 'secup' ? -1 : 1);
+      } else if (a === 'secdel') {
+        var dsc = MENU.filter(function (c) { return c.id === id; })[0];
+        if (dsc && dsc.items.length) { menuNote = 'Move or delete the items in this section first.'; menuConfirm = ''; renderStaff(true); }
+        else if (menuConfirm === id) {
+          menuConfirm = '';
+          db.doc('menu/' + id).delete().then(function () { menuNote = 'Section deleted.'; }, function () { menuNote = 'Could not delete. Try again.'; }).then(function () { renderStaff(true); });
+        } else { menuConfirm = id; renderStaff(true); }
       } else if (a === 'mimgdel') {
         menuWrite(id, { img: '', imgId: '' }).then(function () { renderStaff(true); });
       } else if (a === 'copylink') {
@@ -1814,10 +1972,12 @@ window.FIREBASE_CONFIG = {
     if (e.target === $('scrim2')) closeOpts();
     if (e.target === $('scrim3')) closeBook();
     if (e.target === $('scrim4')) closeMine();
+    if (e.target === $('scrim5')) closeCall();
   });
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
-    if (!$('scrim2').hidden) closeOpts();
+    if ($('scrim5') && !$('scrim5').hidden) closeCall();
+    else if (!$('scrim2').hidden) closeOpts();
     else if (!$('scrim4').hidden) closeMine();
     else if (!$('scrim3').hidden) closeBook();
     else if (!$('scrim').hidden) closeSheet();
@@ -1864,9 +2024,9 @@ window.FIREBASE_CONFIG = {
     if (ePhone) { $('f-phone').focus(); return; }
     if (eTable) { $('f-table').focus(); return; }
 
-    var gone = Object.keys(cart).filter(function (k) { return cfgOf(cart[k].id).soldOut; });
+    var gone = Object.keys(cart).filter(function (k) { return !byId[cart[k].id] || byId[cart[k].id].hidden || cfgOf(cart[k].id).soldOut; });
     if (gone.length) {
-      goneNote = 'Sold out right now: ' + gone.map(function (k) { return byId[cart[k].id].name; }).join(', ') + '. Remove it to continue.';
+      goneNote = 'Sold out right now: ' + gone.map(function (k) { return byId[cart[k].id] ? byId[cart[k].id].name : 'an item'; }).join(', ') + '. Remove it to continue.';
       renderGone();
       return;
     }
@@ -1975,7 +2135,7 @@ window.FIREBASE_CONFIG = {
     var h = '';
     if (staffAuth === 'checking') h = '<p class="snote" role="status">Checking...</p>';
     else if (staffAuth === 'nocrypto') h = '<p class="snote">This browser cannot set a staff password. Open the page in an up to date browser.</p>';
-    else if (staffAuth === 'error') h = '<p class="snote">Could not connect. Check your internet, and check that the Firebase settings in the page are correct.</p>';
+    else if (staffAuth === 'error') h = '<p class="snote">Could not connect. Check your internet, and check that public/firebase-config.js has your Firebase settings.</p>';
     else {
       var title, intro, fields, btn;
       if (staffAuth === 'setup') {
@@ -2297,6 +2457,13 @@ window.FIREBASE_CONFIG = {
       var bid = e.target.getAttribute('data-badge'), bv = e.target.value;
       e.target.blur();
       menuWrite(bid, { badge: bv }).then(function () { renderStaff(true); });
+    } else if (e.target.getAttribute && e.target.getAttribute('data-draftfile')) {
+      var df = e.target.files && e.target.files[0], dfor = menuDraft.for || '+new';
+      readItemDraft(dfor);
+      e.target.value = '';
+      if (df && assets && /^image\//.test(df.type)) {
+        shrink(df).then(function (b) { return assets.upload(b); }).then(function (r) { menuDraft.img = r.url; }, function () { menuNote = 'Could not use that photo.'; }).then(function () { renderStaff(true); });
+      }
     } else if (e.target.getAttribute && e.target.getAttribute('data-menufile')) {
       var mf = e.target.files && e.target.files[0];
       menuUpload(e.target.getAttribute('data-menufile'), mf);
@@ -2371,16 +2538,16 @@ window.FIREBASE_CONFIG = {
     } catch (err) {}
   }
 
+  function pendingCalls() { return staffData.calls.filter(function (c) { return c.reqs && Object.keys(c.reqs).length; }); }
   function callsBar() {
-    var cs = staffData.calls.filter(function (c) { return c.reqs && Object.keys(c.reqs).length; });
+    var cs = pendingCalls();
     if (!cs.length) return '';
-    var L = { waiter: 'Waiter', water: 'Water', bill: 'Bill' };
-    return '<div class="alertbar" role="status">' + cs.map(function (c) {
-      var what = Object.keys(c.reqs).map(function (k) { return L[k] || k; }).join(', ');
-      return '<div class="alert"><span>Table ' + esc(c.table) + ': ' + esc(what) + (c.name ? ' (' + esc(c.name) + ')' : '') + '</span>' +
-        '<button type="button" class="btn-fill" data-action="calldone" data-uid="' + esc(c.uid) + '">Done</button></div>';
+    return '<div class="alertbar callalert" role="alert">' + cs.map(function (c) {
+      return '<div class="alert"><span>🔔 <b>Table ' + esc(c.table || '?') + '</b>' + (c.name ? ' (' + esc(c.name) + ')' : '') + ' needs: ' + esc(callList(c).join(', ')) + '</span>' +
+        '<button type="button" class="btn-fill" data-action="calldone" data-uid="' + esc(c.uid) + '">Stop calling</button></div>';
     }).join('') + '</div>';
   }
+  setInterval(function () { if (MODE === 'staff' && isStaff && pendingCalls().length) beep(); }, 8000);
 
   function kitchenTab(orders) {
     var cols = [['New', 0], ['Preparing', 1], ['Ready', 2]];
@@ -2422,26 +2589,112 @@ window.FIREBASE_CONFIG = {
     }).then(function () { if (!menuNote) menuNote = 'Photo saved.'; }, function () { menuNote = 'Could not upload the photo. Try another image.'; })
       .then(function () { renderStaff(true); });
   }
+  var menuEdit = '', secEdit = '', menuDraft = {}, menuConfirm = '';
+  function opt(v, label, cur) { return '<option value="' + esc(v) + '"' + (v === cur ? ' selected' : '') + '>' + esc(label) + '</option>'; }
+  function itemForm(it, isNew, secId) {
+    var d = menuDraft.for === (isNew ? '+new' : it.id) ? menuDraft : {};
+    function v(k, def) { return d[k] != null ? d[k] : def; }
+    var bd = isNew ? '' : badgeOf(it.id);
+    var secOpts = MENU.map(function (c) { return opt(c.id, c.cat, v('sec', isNew ? secId : it.sec)); }).join('');
+    var offerNow = isNew ? '' : (it.listPrice > it.price ? it.price : '');
+    var h = '<li class="crow editform"><div class="field"><label class="fl" for="mi-name">Item name</label><input id="mi-name" type="text" value="' + esc(v('name', isNew ? '' : it.name)) + '" placeholder="e.g. Dal Makhani"></div>' +
+      '<div class="field"><label class="fl" for="mi-desc">Description</label><input id="mi-desc" type="text" value="' + esc(v('desc', isNew ? '' : it.desc)) + '" placeholder="Short line about the dish"></div>' +
+      '<div class="pair"><div class="field"><label class="fl" for="mi-price">Price (₹)</label><input id="mi-price" type="number" inputmode="numeric" min="1" value="' + esc(v('price', isNew ? '' : it.listPrice)) + '"></div>' +
+      '<div class="field"><label class="fl" for="mi-offer">Offer price (₹, optional)</label><input id="mi-offer" type="number" inputmode="numeric" min="0" value="' + esc(v('offer', offerNow)) + '" placeholder="Cheaper price"></div></div>' +
+      '<div class="pair"><div class="field"><label class="fl" for="mi-veg">Type</label><select id="mi-veg">' + opt('1', 'Veg', v('veg', (isNew || it.veg) ? '1' : '0')) + opt('0', 'Non-veg', v('veg', (isNew || it.veg) ? '1' : '0')) + '</select></div>' +
+      '<div class="field"><label class="fl" for="mi-sec">Section</label><select id="mi-sec">' + secOpts + '</select></div></div>' +
+      '<div class="pair"><div class="field"><label class="fl" for="mi-badge">Badge</label><select id="mi-badge">' + opt('', 'No badge', v('badge', bd)) + opt('bestseller', 'Bestseller', v('badge', bd)) + opt('chef', "Chef's pick", v('badge', bd)) + opt('new', 'New', v('badge', bd)) + '</select></div>' +
+      '<div class="field"><label class="fl" for="mi-tag">Own tag (optional)</label><input id="mi-tag" type="text" maxlength="20" value="' + esc(v('tag', isNew ? '' : it.tag)) + '" placeholder="e.g. Spicy"></div></div>';
+    if (isNew) {
+      h += '<div class="field"><label class="fl" for="mi-custom">Choices for customer</label><select id="mi-custom">' + opt('', 'None (just add)', v('custom', '')) + opt('plain', 'Size and sugar', v('custom', '')) + opt('milk', 'Size, milk and sugar', v('custom', '')) + '</select></div>';
+      if (assets) h += '<div class="tb-row">' + (menuDraft.img ? '<img class="thumb" src="' + esc(menuDraft.img) + '" alt="">' : '') + '<label class="btn-line filebtn">' + (menuDraft.img ? 'Change photo' : 'Add photo') + '<input type="file" accept="image/*" data-draftfile="1"></label></div>';
+    }
+    h += '<div class="tb-row"><button type="button" class="btn-fill" data-action="msave" data-id="' + (isNew ? '+new' : it.id) + '">Save</button>' +
+      '<button type="button" class="btn-line" data-action="mcancel">Cancel</button>' +
+      (!isNew && it.own ? '<button type="button" class="btn-line" data-action="mdel" data-id="' + it.id + '">' + (menuConfirm === it.id ? 'Tap again to delete' : 'Delete item') + '</button>' : '') + '</div></li>';
+    return h;
+  }
+  function itemRow(i) {
+    var cf = cfgOf(i.id);
+    if (menuEdit === i.id) return itemForm(i, false);
+    return '<li class="crow' + (i.hidden ? ' off' : '') + '"><div class="mm">' + (cf.img ? '<img class="thumb" src="' + esc(cf.img) + '" alt="">' : '') +
+      '<div><p class="c-name">' + esc(i.name) + '</p><small>' + (i.listPrice > i.price ? '<s class="was">' + fmt(i.listPrice) + '</s> ' : '') + fmt(i.price) + (i.custom ? ' from' : '') + (i.veg ? ' · Veg' : ' · Non-veg') +
+      (cf.soldOut ? ' · Sold out' : '') + (i.hidden ? ' · Hidden' : '') + (i.tag ? ' · ' + esc(i.tag) : '') + '</small></div></div>' +
+      '<div class="mact"><button type="button" class="btn-fill" data-action="medit" data-id="' + i.id + '">Edit</button>' +
+      '<button type="button" class="btn-line" data-action="msold" data-id="' + i.id + '">' + (cf.soldOut ? 'Back in stock' : 'Mark sold out') + '</button>' +
+      '<button type="button" class="btn-line" data-action="mhide" data-id="' + i.id + '">' + (i.hidden ? 'Show' : 'Hide') + '</button>' +
+      (assets ? '<label class="btn-line filebtn">' + (cf.img ? 'Change photo' : 'Add photo') + '<input type="file" accept="image/*" data-menufile="' + i.id + '"></label>' : '') +
+      (cf.img ? '<button type="button" class="btn-line" data-action="mimgdel" data-id="' + i.id + '">Remove photo</button>' : '') +
+      '</div></li>';
+  }
+  function secForm(sc, isNew) {
+    var d = menuDraft.for === 'sec:' + (isNew ? '+new' : sc.id) ? menuDraft : {};
+    var kind = d.kind || (isNew ? 'food' : sc.kind);
+    return '<div class="crow editform"><div class="field"><label class="fl" for="sc-name">Section name</label><input id="sc-name" type="text" maxlength="30" value="' + esc(d.name != null ? d.name : (isNew ? '' : sc.cat)) + '" placeholder="e.g. Dinner"></div>' +
+      '<div class="field"><label class="fl" for="sc-kind">Type of items</label><select id="sc-kind">' + Object.keys(KINDS).map(function (k) { return opt(k, KINDS[k], kind); }).join('') + '</select></div>' +
+      '<div class="tb-row"><button type="button" class="btn-fill" data-action="secsave" data-id="' + (isNew ? '+new' : sc.id) + '">Save</button><button type="button" class="btn-line" data-action="mcancel">Cancel</button></div></div>';
+  }
   function menuTab() {
-    var h = '<p class="fine">Mark an item sold out and customers cannot order it. Photos show on the menu.</p>';
+    var h = '<p class="fine">Change your whole menu here. Customers see changes in a few seconds. Built-in items can be edited or hidden; items you add can also be deleted.</p>';
     if (menuNote) h += '<p class="snote" role="status">' + esc(menuNote) + '</p>';
     if (!assets) h += '<p class="snote">Photo upload is not available in this view.</p>';
-    MENU.forEach(function (c) {
-      h += '<h3 class="mt-h">' + esc(c.cat) + '</h3><ul class="clist">' + c.items.map(function (i) {
-        var cf = cfgOf(i.id), bd = badgeOf(i.id);
-        var opts = [['', 'No badge'], ['bestseller', 'Bestseller'], ['chef', "Chef's pick"], ['new', 'New']].map(function (o) {
-          return '<option value="' + o[0] + '"' + (o[0] === bd ? ' selected' : '') + '>' + esc(o[1]) + '</option>';
-        }).join('');
-        return '<li class="crow"><div class="mm">' + (cf.img ? '<img class="thumb" src="' + esc(cf.img) + '" alt="">' : '') +
-          '<div><p class="c-name">' + esc(i.name) + '</p><small>' + fmt(i.price) + (i.custom ? ' from' : '') + (cf.soldOut ? ' · Sold out' : '') + '</small></div></div>' +
-          '<div class="mact"><button type="button" class="btn-line" data-action="msold" data-id="' + i.id + '">' + (cf.soldOut ? 'Back in stock' : 'Mark sold out') + '</button>' +
-          '<select data-badge="' + i.id + '" aria-label="Badge for ' + esc(i.name) + '">' + opts + '</select>' +
-          (assets ? '<label class="btn-line filebtn">' + (cf.img ? 'Change photo' : 'Add photo') + '<input type="file" accept="image/*" data-menufile="' + i.id + '"></label>' : '') +
-          (cf.img ? '<button type="button" class="btn-line" data-action="mimgdel" data-id="' + i.id + '">Remove photo</button>' : '') +
-          '</div></li>';
-      }).join('') + '</ul>';
+    h += '<div class="tb-row"><button type="button" class="btn-fill" data-action="secnew">+ Add section</button><button type="button" class="btn-fill" data-action="mnew" data-id="">+ Add item</button></div>';
+    if (secEdit === '+new') h += secForm(null, true);
+    if (menuEdit === '+new') h += '<ul class="clist">' + itemForm(null, true, menuDraft.sec || MENU[0].id) + '</ul>';
+    MENU.forEach(function (c, ci) {
+      h += '<div class="sechead' + (c.hidden ? ' off' : '') + '"><h3 class="mt-h">' + esc(c.cat) + (c.hidden ? ' (hidden)' : '') + '</h3>' +
+        '<div class="mact"><button type="button" class="btn-line" data-action="secedit" data-id="' + c.id + '">Rename</button>' +
+        '<button type="button" class="btn-line" data-action="sechide" data-id="' + c.id + '">' + (c.hidden ? 'Show' : 'Hide') + '</button>' +
+        '<button type="button" class="btn-line" data-action="secup" data-id="' + c.id + '"' + (ci === 0 ? ' disabled' : '') + ' aria-label="Move up">↑</button>' +
+        '<button type="button" class="btn-line" data-action="secdown" data-id="' + c.id + '"' + (ci === MENU.length - 1 ? ' disabled' : '') + ' aria-label="Move down">↓</button>' +
+        (!c.builtin ? '<button type="button" class="btn-line" data-action="secdel" data-id="' + c.id + '">' + (menuConfirm === c.id ? 'Tap again to delete' : 'Delete') + '</button>' : '') +
+        '<button type="button" class="btn-line" data-action="mnew" data-id="' + c.id + '">+ Item here</button></div></div>';
+      if (secEdit === c.id) h += secForm(c, false);
+      h += '<ul class="clist">' + (c.items.length ? c.items.map(itemRow).join('') : '<li class="snote">No items yet.</li>') + '</ul>';
     });
     return h;
+  }
+  function numOrEmpty(x) { return x === '' ? '' : x; }
+  function readItemDraft(forId) {
+    var g = function (id) { var e = $(id); return e ? e.value : ''; };
+    menuDraft = { for: forId, name: g('mi-name'), desc: g('mi-desc'), price: g('mi-price'), offer: g('mi-offer'), veg: g('mi-veg'), sec: g('mi-sec'), badge: g('mi-badge'), tag: g('mi-tag'), custom: g('mi-custom'), img: menuDraft.img || '' };
+    return menuDraft;
+  }
+  function itemSave(id) {
+    var isNew = id === '+new', d = readItemDraft(id);
+    var price = pnum(d.price), offer = pnum(d.offer);
+    if (!d.name.trim()) { menuNote = 'Write the item name.'; return renderStaff(true); }
+    if (!price) { menuNote = 'Enter the price in rupees.'; return renderStaff(true); }
+    if (offer && offer >= price) { menuNote = 'Offer price must be less than the price. Leave it empty for no offer.'; return renderStaff(true); }
+    var patch = { name: d.name.trim(), desc: d.desc.trim(), price: price, offer: offer, veg: d.veg !== '0', sec: d.sec, badge: d.badge, tag: d.tag.trim() };
+    if (isNew) {
+      id = 'own-' + Date.now().toString(36);
+      patch.own = true; patch.at = Date.now(); patch.soldOut = false; patch.custom = d.custom || ''; patch.img = d.img || '';
+    }
+    menuWrite(id, patch).then(function () {
+      if (!menuNote) { menuNote = isNew ? 'Item added.' : 'Item saved.'; menuEdit = ''; menuDraft = {}; }
+      renderStaff(true);
+    });
+  }
+  function secSave(id) {
+    var isNew = id === '+new', name = ($('sc-name') ? $('sc-name').value : '').trim(), kind = $('sc-kind') ? $('sc-kind').value : 'food';
+    menuDraft = { for: 'sec:' + id, name: name, kind: kind };
+    if (!name) { menuNote = 'Write the section name.'; return renderStaff(true); }
+    var patch = { cat: name, kind: kind };
+    if (isNew) {
+      id = 'sec-' + slug(name) + '-' + Date.now().toString(36).slice(-4);
+      patch.order = MENU.reduce(function (m, c) { return Math.max(m, c.order); }, 0) + 10;
+    }
+    menuWrite(id, patch).then(function () {
+      if (!menuNote) { menuNote = isNew ? 'Section added. Now add items to it.' : 'Section saved.'; secEdit = ''; menuDraft = {}; }
+      renderStaff(true);
+    });
+  }
+  function secMove(id, dir) {
+    var ids = MENU.map(function (c) { return c.id; }), i = ids.indexOf(id), j = i + dir;
+    if (i < 0 || j < 0 || j >= ids.length) return;
+    var t = ids[i]; ids[i] = ids[j]; ids[j] = t;
+    Promise.all(ids.map(function (sid, n) { return menuWrite(sid, { order: n * 10 }); })).then(function () { renderStaff(true); });
   }
 
   // Reports: last 7 days, from the orders customers have shared

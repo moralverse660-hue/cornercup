@@ -351,3 +351,16 @@ legend, label.fl { font-size: 14px; font-weight: 600; padding: 0; margin-bottom:
 html { color-scheme: light; }
 body { margin: 0; font: 14px system-ui, sans-serif; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
 img { max-width: 100%; }
+
+/* call staff + menu manager */
+.callchips { margin: 10px 0 12px; }
+.tag.own { background: var(--bg); border: 1px solid var(--line); color: var(--muted); }
+.was { color: var(--muted); font-weight: 400; margin-right: 4px; }
+.callalert .alert { border-width: 2px; animation: ccpulse 1.4s ease-in-out infinite; }
+.callalert .alert span { font-size: 16px; }
+@keyframes ccpulse { 50% { box-shadow: 0 0 0 4px var(--warn-bg); } }
+@media (prefers-reduced-motion: reduce) { .callalert .alert { animation: none; } }
+.sechead { margin-top: 18px; }
+.sechead.off, .crow.off { opacity: 0.6; }
+.editform { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--accent); border-radius: 12px; margin: 8px 0; list-style: none; }
+.mact button[disabled] { opacity: 0.4; }
