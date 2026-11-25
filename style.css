@@ -401,3 +401,20 @@ img, svg, video { max-width: 100%; }
 }
 
 .codebig { font-size: 20px; letter-spacing: 2px; color: var(--accent); }
+
+/* UPI, ready banner, late orders, kitchen big screen */
+.paybox { margin: 12px 0; display: grid; gap: 6px; }
+.paylink { display: block; text-align: center; text-decoration: none; }
+.readybanner { position: fixed; left: 0; right: 0; top: 0; z-index: 60; display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 14px 16px; padding-top: max(14px, env(safe-area-inset-top, 0px)); background: var(--accent); color: var(--accent-ink, #fff); font-weight: 700; }
+.readybanner[hidden] { display: none; }
+.readybanner .btn-line { background: transparent; color: inherit; border-color: currentColor; }
+.ticket.late { border-color: var(--danger); box-shadow: 0 0 0 2px var(--danger) inset; }
+.late-tag { color: var(--danger); font-weight: 800; }
+.late-note { color: var(--danger); font-weight: 700; }
+.kbar { display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
+@media (max-width: 560px) { .kbar { grid-template-columns: 1fr; } }
+#staff-body.kbig .ticket { font-size: 19px; }
+#staff-body.kbig .t-token { font-size: 30px; }
+#staff-body.kbig .t-rows li { font-size: 22px; }
+#staff-body.kbig .t-foot .btn-fill, #staff-body.kbig .t-foot .btn-line { min-height: 60px; font-size: 20px; }
+#staff-body.kbig .kcols { grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); }
