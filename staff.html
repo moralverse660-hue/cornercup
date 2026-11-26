@@ -935,6 +935,10 @@ window.FIREBASE_CONFIG = {
   };
 
   Object.assign(HI, {
+    'Or open one app:': 'या सीधे एक ऐप खोलें:', 'Button not opening? Pay with UPI ID or QR': 'बटन नहीं खुल रहा? UPI ID या QR से पैसे दें',
+    'This page is open inside another app (Instagram, WhatsApp...). Open it in Chrome or Safari so UPI can start.': 'यह पेज किसी दूसरे ऐप (Instagram, WhatsApp...) के अंदर खुला है। UPI चलाने के लिए इसे Chrome या Safari में खोलें।',
+    'Scan this QR with any UPI app on another phone.': 'किसी दूसरे फ़ोन के UPI ऐप से यह QR स्कैन करें।', 'UPI ID': 'UPI ID', 'Amount': 'रकम', 'Copy UPI ID': 'UPI ID कॉपी करें',
+    'UPI ID copied.': 'UPI ID कॉपी हो गई।', 'If your UPI app did not open, pay with the UPI ID or QR below.': 'अगर UPI ऐप नहीं खुला, तो नीचे UPI ID या QR से पैसे दें।',
     'Spicy': 'तीखा', 'Vegan': 'वीगन', 'Avoid:': 'बचें:', 'Nuts': 'नट्स', 'Dairy': 'डेयरी', 'Gluten': 'ग्लूटेन', 'Egg': 'अंडा', 'Soy': 'सोया',
     'Allergy tags are set by the cafe. If your allergy is serious, please also ask our team before you order.': 'एलर्जी टैग कैफ़े ने लगाए हैं। अगर आपकी एलर्जी गंभीर है तो ऑर्डर से पहले हमारी टीम से भी पूछ लें।',
     'When will you collect it?': 'आप कब लेने आएँगे?', 'Now': 'अभी', 'In 15 minutes': '15 मिनट में', 'In 30 minutes': '30 मिनट में', 'In 45 minutes': '45 मिनट में', 'In 1 hour': '1 घंटे में',
@@ -1487,10 +1491,21 @@ window.FIREBASE_CONFIG = {
     return 'upi://pay?pa=' + encodeURIComponent(u) + '&pn=' + encodeURIComponent(setting('payee', 'Corner Cup')) +
       '&am=' + am.toFixed(2) + '&cu=INR&tn=' + encodeURIComponent('Order ' + (o.token || ''));
   }
+  var payAlt = false;
   function payHTML(o) {
     var l = upiLink(o);
     if (!l || stageFor(o) >= 3) return '';
-    return '<div class="paybox"><a class="place paylink" href="' + esc(l) + '">Pay ' + fmt(o.total) + ' with UPI</a>' +
+    var qs = l.slice(l.indexOf('?') + 1), ua = navigator.userAgent || '', u = String(setting('upi', '')).trim();
+    var main = /Android/i.test(ua) ? 'intent://pay?' + qs + '#Intent;scheme=upi;end' : l;
+    var inapp = /Instagram|FBAN|FBAV|FB_IAB|WhatsApp|Snapchat|Line\/|Telegram/i.test(ua);
+    var svg = qrSvg(l, 'UPI QR code to pay ' + fmt(o.total));
+    return '<div class="paybox"><a class="place paylink" data-action="upigo" href="' + esc(main) + '">Pay ' + fmt(o.total) + ' with UPI</a>' +
+      (inapp ? '<p class="snote warnbox">This page is open inside another app (Instagram, WhatsApp...). Open it in Chrome or Safari so UPI can start.</p>' : '') +
+      '<p class="fine">Or open one app:</p><div class="apps"><a class="btn-line" href="' + esc('tez://upi/pay?' + qs) + '">Google Pay</a><a class="btn-line" href="' + esc('phonepe://pay?' + qs) + '">PhonePe</a><a class="btn-line" href="' + esc('paytmmp://pay?' + qs) + '">Paytm</a></div>' +
+      '<details id="pay-alt" class="more payalt"' + (payAlt ? ' open' : '') + '><summary>Button not opening? Pay with UPI ID or QR</summary><div class="more-body">' +
+      (svg ? '<div class="qrimg">' + svg + '</div><p class="fine">Scan this QR with any UPI app on another phone.</p>' : '') +
+      '<p class="upirow"><span>UPI ID</span> <b>' + esc(u) + '</b></p><p class="upirow"><span>Amount</span> <b>' + fmt(o.total) + '</b></p>' +
+      '<button type="button" class="btn-line" data-action="copyupi" data-v="' + esc(u) + '">Copy UPI ID</button><p class="fine" id="upi-note" role="status"></p></div></details>' +
       '<p class="fine">Opens your UPI app. You can also pay at the counter.</p></div>';
   }
   function slot(id, beforeEl) {
@@ -2143,6 +2158,19 @@ window.FIREBASE_CONFIG = {
         splitN[id] = Math.max(2, Math.min(10, (splitN[id] || 2) + (+btn.getAttribute('data-d') || 0)));
         rerenderSplit();
         var sb = document.querySelector('[data-action="splitn"][data-id="' + id + '"][data-d="' + btn.getAttribute('data-d') + '"]'); if (sb) sb.focus();
+      } else if (a === 'upigo') {
+        setTimeout(function () {
+          if (document.hidden) return;
+          payAlt = true;
+          var pa = $('pay-alt'); if (pa) pa.open = true;
+          var pn = $('upi-note'); if (pn) pn.textContent = 'If your UPI app did not open, pay with the UPI ID or QR below.';
+        }, 2000);
+        return;
+      } else if (a === 'copyupi') {
+        var cv = btn.getAttribute('data-v') || '', cn = $('upi-note');
+        var okc = function () { if (cn) cn.textContent = 'UPI ID copied.'; };
+        var failc = function () { if (cn) cn.textContent = 'Could not copy. Select the UPI ID and copy it by hand.'; };
+        try { navigator.clipboard.writeText(cv).then(okc, failc); } catch (e6) { failc(); }
       } else if (a === 'splitsent') {
         splitSent[id] = (splitSent[id] || 0) + 1;
         setTimeout(rerenderSplit, 400);
@@ -3646,7 +3674,7 @@ window.FIREBASE_CONFIG = {
 
   applyTable();
   if (lang === 'hi') setLang('hi');
-  document.addEventListener('toggle', function (e) { if (e.target && e.target.id === 'mi-more') menuMore = e.target.open; }, true);
+  document.addEventListener('toggle', function (e) { if (e.target && e.target.id === 'mi-more') menuMore = e.target.open; if (e.target && e.target.id === 'pay-alt') payAlt = e.target.open; }, true);
   startFirebase();
 })();
 

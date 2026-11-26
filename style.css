@@ -462,3 +462,10 @@ img, svg, video { max-width: 100%; }
 .btn-line.danger { color: var(--danger); border-color: var(--danger); }
 .bigadd .btn-fill, .bigadd .btn-line { flex: 1 1 45%; }
 .menuhelp ul { list-style: none; padding: 0; display: grid; gap: 6px; }
+
+/* v13 UPI fallbacks */
+.apps { display: flex; flex-wrap: wrap; gap: 8px; }
+.apps .btn-line { flex: 1 1 28%; display: flex; align-items: center; justify-content: center; text-decoration: none; }
+.warnbox { background: var(--warn-bg); color: var(--warn); padding: 10px 12px; border-radius: 10px; margin: 0; }
+.payalt .qrimg { max-width: 200px; margin: 0 auto; }
+.upirow { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; overflow-wrap: anywhere; }
