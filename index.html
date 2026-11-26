@@ -970,6 +970,7 @@ window.FIREBASE_CONFIG = {
   ];
 
   HIP.push(
+    [/^Our cafe has only (\d+) tables\. Enter a table number from 1 to (\d+)\.$/, function (m) { return 'हमारे कैफ़े में सिर्फ़ ' + m[1] + ' टेबल हैं। 1 से ' + m[2] + ' के बीच का टेबल नंबर लिखें।'; }],
     [/^Wait right now: about (\d+) min$/, function (m) { return 'अभी करीब ' + m[1] + ' मिनट इंतज़ार'; }],
     [/^Happy hour \((\d+)% off\)$/, function (m) { return 'हैप्पी आवर (' + m[1] + '% छूट)'; }],
     [/^Happy hour −(\d+)%$/, function (m) { return 'हैप्पी आवर −' + m[1] + '%'; }],
@@ -1613,6 +1614,7 @@ window.FIREBASE_CONFIG = {
         var x = d.data() || {};
         if (d.id === 'cfg') { if (+x.count >= 1) tableTotal = Math.min(40, +x.count); } else m[d.id] = x;
       });
+      if (tableNo && +tableNo > tableTotal) { tableNo = ''; save('cc-table', null); $('f-table').value = ''; }
       tableMap = m;
       renderTablebar();
     }, function () {});
@@ -2397,7 +2399,10 @@ window.FIREBASE_CONFIG = {
     var table = $('f-table').value.trim();
     var phone = cleanPhone($('f-phone').value);
     var eName = name ? '' : 'Enter a name so we can call out your order.';
-    var eTable = type === 'dinein' && !table ? 'Enter the table number printed on your table.' : '';
+    var tnum = /^\d{1,3}$/.test(table) ? +table : 0;
+    var eTable = type === 'dinein' && !table ? 'Enter the table number printed on your table.'
+      : (type === 'dinein' && (tnum < 1 || tnum > tableTotal) ? 'Our cafe has only ' + tableTotal + ' tables. Enter a table number from 1 to ' + tableTotal + '.' : '');
+    if (type === 'dinein' && !eTable) table = String(tnum);
     var ePhone = validatePhone(phone);
     setError('f-name', 'err-name', eName);
     setError('f-phone', 'err-phone', ePhone);
@@ -2641,6 +2646,8 @@ window.FIREBASE_CONFIG = {
       var m = {};
       snap.docs.forEach(function (d) { if (d.id === 'cfg') { if (+(d.data() || {}).count >= 1) tableCount = Math.min(40, +d.data().count); } else m[d.id] = d.data() || {}; });
       staffData.tables = m;
+      // Make sure customers always know how many tables the cafe has
+      if (!snap.docs.some(function (d) { return d.id === 'cfg'; })) db.doc('tables/cfg').set({ count: tableCount }).then(function () {}, function () {});
       rotateUsedCodes();
     });
     if (isOwner) {
