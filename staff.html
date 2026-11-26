@@ -343,6 +343,7 @@ window.FIREBASE_CONFIG = {
   var OWNERS = ['kesharisunita684@gmail.com'];
   function hhmm(v) { return /^\d{1,2}:\d{2}$/.test(String(v || '')) ? String(v) : ''; }
   function toMin(v) { var p = String(v).split(':'); return (+p[0]) * 60 + (+p[1]); }
+  var ALLERGENS = { nuts: 'Nuts', dairy: 'Dairy', gluten: 'Gluten', egg: 'Egg', soy: 'Soy' };
   var KINDS = { coffee: 'Coffee (counts for free coffee)', drink: 'Drink', food: 'Food' };
   function slug(t) { return String(t).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'x'; }
   function pnum(v) { v = +v; return isFinite(v) && v > 0 ? Math.round(v) : 0; }
@@ -370,7 +371,7 @@ window.FIREBASE_CONFIG = {
       var it = { id: id, name: o.name || (base ? base.name : 'Item'), desc: typeof o.desc === 'string' ? o.desc : (base ? base.desc : ''),
         listPrice: list, price: (offer && offer < list) ? offer : list, veg: typeof o.veg === 'boolean' ? o.veg : (base ? base.veg : true),
         custom: base ? base.custom : (o.custom === 'milk' || o.custom === 'plain' ? o.custom : undefined),
-        hidden: !!o.hidden, own: own, tag: typeof o.tag === 'string' ? o.tag : '', sec: sc.id, kind: sc.kind, at: o.at || 0 };
+        hidden: !!o.hidden, own: own, tag: typeof o.tag === 'string' ? o.tag : '', allergens: Array.isArray(o.allergens) ? o.allergens.filter(function (a) { return ALLERGENS[a]; }) : [], sec: sc.id, kind: sc.kind, at: o.at || 0 };
       nb[id] = it; sc.items.push(it);
     }
     BASE_MENU.forEach(function (c) {
@@ -500,8 +501,96 @@ window.FIREBASE_CONFIG = {
     var st = menuCfg && menuCfg.settings;
     return st && st[k] != null && st[k] !== '' ? st[k] : def;
   }
-  var BADGES = { bestseller: 'Bestseller', chef: "Chef's pick", 'new': 'New' };
+  var BADGES = { bestseller: 'Bestseller', chef: "Chef's pick", 'new': 'New', spicy: 'Spicy', vegan: 'Vegan' };
   var DEFAULT_BADGE = { cappu: 'bestseller', masala: 'bestseller', paneer: 'bestseller', flat: 'chef', brownie: 'chef', matcha: 'new' };
+
+  // Happy hour: a timed percentage off for some sections (or the whole menu)
+  function hhActive() {
+    if (!setting('hhOn', '')) return null;
+    var pct = Math.round(+setting('hhPct', 0)), f = hhmm(setting('hhFrom', '')), u = hhmm(setting('hhUntil', ''));
+    if (!(pct >= 1 && pct <= 90) || !f || !u) return null;
+    var d = new Date(), m = d.getHours() * 60 + d.getMinutes(), a = toMin(f), b = toMin(u);
+    var inside = a === b ? false : (a < b ? (m >= a && m < b) : (m >= a || m < b));
+    if (!inside) return null;
+    return { pct: pct, secs: String(setting('hhSecs', '')).split(',').filter(Boolean), until: u };
+  }
+  function hhFor(it) { var h = hhActive(); return h && (!h.secs.length || h.secs.indexOf(it.sec) >= 0) ? h : null; }
+  // Wait time: the staff page writes how many orders are waiting; stale numbers are ignored
+  function waitInfo() {
+    if (!queueDoc || !(Date.now() - (+queueDoc.at || 0) < 15 * 60000)) return null;
+    var n = Math.max(0, +queueDoc.n || 0);
+    return { n: n, min: Math.min(45, 5 + 3 * n) };
+  }
+  function hasAllergenData() { return Object.keys(byId).some(function (k) { return byId[k].allergens.length; }); }
+  function avoided(it) { return Object.keys(avoid).some(function (k) { return avoid[k] && it.allergens.indexOf(k) >= 0; }); }
+  function renderBanners() {
+    if (MODE !== 'customer' || !$('menu')) return;
+    var wi = waitInfo(), wc = slot('wait-chip', $('menu'));
+    wc.className = 'waitchip'; wc.hidden = !wi;
+    wc.textContent = wi ? 'Wait right now: about ' + wi.min + ' min' : '';
+    var h = hhActive(), b = slot('hh-banner', $('menu'));
+    b.className = 'banner'; b.hidden = !h;
+    if (h) {
+      var names = h.secs.map(function (id) { var sc = secOf(id); return sc ? sc.cat : ''; }).filter(Boolean).join(', ');
+      b.textContent = 'Happy hour: ' + h.pct + '% off' + (names ? ' on ' + names : '') + ' until ' + t12(h.until);
+    } else b.textContent = '';
+    var av = slot('avoid-row', $('menu'));
+    if (!hasAllergenData()) { av.hidden = true; av.innerHTML = ''; return; }
+    av.hidden = false; av.className = 'avoid';
+    var used = {};
+    Object.keys(byId).forEach(function (k) { byId[k].allergens.forEach(function (a) { used[a] = 1; }); });
+    av.innerHTML = '<span class="a-lbl">Avoid:</span>' + Object.keys(ALLERGENS).filter(function (k) { return used[k]; }).map(function (k) {
+      return '<button type="button" class="chip" data-action="avoid" data-id="' + k + '" aria-pressed="' + !!avoid[k] + '">' + ALLERGENS[k] + '</button>';
+    }).join('') + '<p class="fine">Allergy tags are set by the cafe. If your allergy is serious, please also ask our team before you order.</p>';
+  }
+  // Suggest one thing that completes a drink or a bite order
+  function upsellPicks() {
+    var hasD = false, hasF = false;
+    Object.keys(cart).forEach(function (k) { var it = byId[cart[k].id]; if (!it) return; if (it.kind === 'food') hasF = true; else hasD = true; });
+    if (hasD === hasF) return [];
+    var list = Object.keys(byId).map(function (k) { return byId[k]; }).filter(function (it) {
+      if (it.hidden || itemGone(it.id) || qtyOfItem(it.id) || avoided(it)) return false;
+      return hasD ? it.kind === 'food' : it.kind !== 'food';
+    });
+    function score(it) { var b = badgeOf(it.id); return (b === 'bestseller' ? 2 : b ? 1 : 0) + (favs[it.id] ? 2 : 0); }
+    list.sort(function (a, b) { return score(b) - score(a) || a.price - b.price; });
+    return list.slice(0, 2);
+  }
+  function renderUpsell() {
+    if (!$('hints')) return;
+    var ups = upsellPicks(), el = slot('upsell', $('hints'));
+    el.className = 'upsell'; el.hidden = !ups.length;
+    el.innerHTML = ups.length ? '<p class="u-title">Goes well with your order. Combo saves ' + fmt(COMBO) + '</p><div class="u-row">' + ups.map(function (it) {
+      return '<button type="button" class="u-btn" data-action="upsell" data-id="' + esc(it.id) + '" aria-label="Add ' + esc(it.name) + '"><span>+</span> <span>' + esc(it.name) + '</span> <em>' + (it.custom ? 'from ' : '') + fmt(it.price) + '</em></button>';
+    }).join('') + '</div>' : '';
+  }
+  // Split the bill between friends
+  function shareAmt(o, n) { return Math.ceil((+o.total || 0) * 100 / n) / 100; }
+  function splitHTML(o) {
+    if (!o || o.demo || !o.shared || stageFor(o) >= 3 || !(+o.total > 0)) return '';
+    var id = esc(o.id);
+    if (!splitOpen[o.id]) return '<div class="split"><button type="button" class="btn-line" data-action="splittog" data-id="' + id + '">Split the bill with friends</button></div>';
+    var n = splitN[o.id] || 2, per = shareAmt(o, n), pay = upiLink(o, per), u = String(setting('upi', '')).trim();
+    var msg = 'Corner Cup bill ' + o.token + ': total ' + fmt(o.total) + ', split ' + n + ' ways. Each person pays ' + fmt(per) + (pay ? '. UPI ID: ' + u : '. Pay at the counter.');
+    return '<div class="split"><p class="u-title">Split the bill</p>' +
+      '<div class="split-row"><span>People</span><div class="step"><button type="button" data-action="splitn" data-id="' + id + '" data-d="-1" aria-label="One person less">−</button><output aria-live="polite">' + n + '</output><button type="button" data-action="splitn" data-id="' + id + '" data-d="1" aria-label="One more person">+</button></div></div>' +
+      '<p class="split-amt"><span>Each pays</span> <strong>' + fmt(per) + '</strong></p>' +
+      (pay ? '<a class="place paylink" href="' + esc(pay) + '">Pay my share ' + fmt(per) + '</a>' : '') +
+      '<a class="btn-line" target="_blank" rel="noopener" href="https://wa.me/?text=' + encodeURIComponent(msg) + '">Send to friends on WhatsApp</a>' +
+      '<button type="button" class="btn-line" data-action="splittog" data-id="' + id + '">Close</button></div>';
+  }
+  function rerenderSplit() { if (order) renderDone(); if (mineSel) renderMineReceipt(); }
+  // Thumbs for each item after the order
+  function itemRateRows(o, d) {
+    var seen = {};
+    var rows = ((o && o.rec && o.rec.lines) || []).filter(function (l) { if (!l.id || seen[l.id]) return false; seen[l.id] = 1; return true; }).map(function (l) {
+      var cur = (d.items || {})[l.id] || 0, nm = esc(l.name), oid = esc(o.id), iid = esc(l.id);
+      return '<div class="irate"><span>' + nm + '</span><span class="ibtns">' +
+        '<button type="button" class="ithumb" data-action="irate" data-oid="' + oid + '" data-iid="' + iid + '" data-v="1" aria-pressed="' + (cur === 1) + '" aria-label="Liked ' + nm + '">👍</button>' +
+        '<button type="button" class="ithumb" data-action="irate" data-oid="' + oid + '" data-iid="' + iid + '" data-v="-1" aria-pressed="' + (cur === -1) + '" aria-label="Did not like ' + nm + '">👎</button></span></div>';
+    }).join('');
+    return rows ? '<p class="fine">Rate each item (optional)</p>' + rows : '';
+  }
   function cfgOf(id) { return menuCfg[id] || {}; }
   function badgeOf(id) {
     var c = cfgOf(id);
@@ -526,10 +615,11 @@ window.FIREBASE_CONFIG = {
   }
   // Timed sections (for example Dinner after 7 pm) open and close by themselves
   var openSig = '';
-  function openSignature() { return MENU.map(function (c) { return c.id + (secOpen(c) ? 1 : 0); }).join(','); }
+  function openSignature() { var h = hhActive(); return MENU.map(function (c) { return c.id + (secOpen(c) ? 1 : 0); }).join(',') + (h ? '|hh' + h.pct : ''); }
   openSig = openSignature();
   setInterval(function () {
     if (MODE !== 'customer') return;
+    renderBanners();
     var sg = openSignature();
     if (sg === openSig) return;
     openSig = sg;
@@ -704,6 +794,7 @@ window.FIREBASE_CONFIG = {
     if (r) {
       el.innerHTML = '<div class="rate"><p class="r-title">Thanks for your feedback!</p><div class="stars-done" role="img" aria-label="' + r.stars + ' out of 5">' + starsText(r.stars) + '</div>' +
         (r.text ? '<p class="fine">' + esc(r.text) + '</p>' : '') +
+        (r.items && Object.keys(r.items).length ? '<p class="fine">' + Object.keys(r.items).map(function (k) { return esc(byId[k] ? byId[k].name : 'Item') + (r.items[k] > 0 ? ' 👍' : ' 👎'); }).join(' · ') + '</p>' : '') +
         (r.stars >= 4 && /^https:\/\//.test(String(setting('google', ''))) ? '<p class="fine">Glad you liked it! Would you share it on Google too?</p><a class="btn-fill" target="_blank" rel="noopener" href="' + esc(setting('google', '')) + '">Rate us on Google</a>' : '') + '</div>';
       return;
     }
@@ -712,7 +803,7 @@ window.FIREBASE_CONFIG = {
     for (var i = 1; i <= 5; i++) {
       h += '<button type="button" class="star" data-action="rate" data-id="' + esc(o.id) + '" data-n="' + i + '" aria-pressed="' + (i <= d.stars) + '" aria-label="' + i + (i === 1 ? ' star' : ' stars') + '">★</button>';
     }
-    h += '</div><textarea class="rate-text" data-oid="' + esc(o.id) + '" placeholder="Tell us more (optional)" maxlength="300">' + esc(d.text || '') + '</textarea>' +
+    h += '</div>' + itemRateRows(o, d) + '<textarea class="rate-text" data-oid="' + esc(o.id) + '" placeholder="Tell us more (optional)" maxlength="300">' + esc(d.text || '') + '</textarea>' +
       '<p class="err" role="alert"' + (d.err ? '' : ' hidden') + '>Pick the stars first.</p>' +
       '<button type="button" class="place" data-action="sendrate" data-id="' + esc(o.id) + '">Send feedback</button></div>';
     el.innerHTML = h;
@@ -728,10 +819,10 @@ window.FIREBASE_CONFIG = {
     var d = rateDraft[id] || { stars: 0, text: '' };
     if (!d.stars) { d.err = true; rateDraft[id] = d; rerenderRates(); return; }
     var oo = mergedOrders().filter(function (x) { return x.id === id; })[0];
-    var r = { stars: d.stars, text: (d.text || '').trim().slice(0, 300), at: Date.now() };
+    var r = { stars: d.stars, text: (d.text || '').trim().slice(0, 300), at: Date.now(), items: Object.assign({}, d.items || {}) };
     ratings[id] = r;
     save('cc-ratings', ratings);
-    share('feedback', { id: id, token: oo ? oo.token : '', stars: r.stars, text: r.text, name: savedName || '', at: r.at });
+    share('feedback', { id: id, token: oo ? oo.token : '', stars: r.stars, text: r.text, items: r.items, name: savedName || '', at: r.at });
     rerenderRates();
   }
 
@@ -840,6 +931,14 @@ window.FIREBASE_CONFIG = {
     'How was it?': 'कैसा लगा?', 'Tell us more (optional)': 'और बताइए (वैकल्पिक)', 'Send feedback': 'फ़ीडबैक भेजें',
     'Pick the stars first.': 'पहले स्टार चुनें।', 'Thanks for your feedback!': 'आपके फ़ीडबैक के लिए धन्यवाद!'
   };
+
+  Object.assign(HI, {
+    'Spicy': 'तीखा', 'Vegan': 'वीगन', 'Avoid:': 'बचें:', 'Nuts': 'नट्स', 'Dairy': 'डेयरी', 'Gluten': 'ग्लूटेन', 'Egg': 'अंडा', 'Soy': 'सोया',
+    'Allergy tags are set by the cafe. If your allergy is serious, please also ask our team before you order.': 'एलर्जी टैग कैफ़े ने लगाए हैं। अगर आपकी एलर्जी गंभीर है तो ऑर्डर से पहले हमारी टीम से भी पूछ लें।',
+    'When will you collect it?': 'आप कब लेने आएँगे?', 'Now': 'अभी', 'In 15 minutes': '15 मिनट में', 'In 30 minutes': '30 मिनट में', 'In 45 minutes': '45 मिनट में', 'In 1 hour': '1 घंटे में',
+    'Split the bill with friends': 'दोस्तों के साथ बिल बाँटें', 'Split the bill': 'बिल बाँटें', 'People': 'लोग', 'Each pays': 'हर कोई देगा',
+    'Send to friends on WhatsApp': 'WhatsApp पर दोस्तों को भेजें', 'Rate each item (optional)': 'हर आइटम को रेट करें (वैकल्पिक)'
+  });
   function T(x) { var r = trCore(x); return r == null ? x : r; }
   var HIP = [
     [/^Pay (₹[\d,.]+) with UPI$/, function (m) { return 'UPI से ' + m[1] + ' दें'; }],
@@ -869,6 +968,17 @@ window.FIREBASE_CONFIG = {
     [/^(\d+) of (\d+) stamps\. (\d+) more orders? for a free coffee\. Stamps never expire\.$/, function (m) { return m[2] + ' में से ' + m[1] + ' स्टैम्प। मुफ़्त कॉफ़ी के लिए ' + m[3] + ' ऑर्डर और। स्टैम्प कभी ख़त्म नहीं होते।'; }],
     [/^Sold out right now: (.+)\. Remove it to continue\.$/, function (m) { return 'अभी ख़त्म है: ' + (nameSub(m[1]) || m[1]) + '। आगे बढ़ने के लिए इसे हटाएँ।'; }]
   ];
+
+  HIP.push(
+    [/^Wait right now: about (\d+) min$/, function (m) { return 'अभी करीब ' + m[1] + ' मिनट इंतज़ार'; }],
+    [/^Happy hour \((\d+)% off\)$/, function (m) { return 'हैप्पी आवर (' + m[1] + '% छूट)'; }],
+    [/^Happy hour −(\d+)%$/, function (m) { return 'हैप्पी आवर −' + m[1] + '%'; }],
+    [/^Happy hour: (\d+)% off(?: on (.+))? until (.+)$/, function (m) { return 'हैप्पी आवर: ' + m[1] + '% छूट' + (m[2] ? ' (' + m[2].split(', ').map(T).join(', ') + ')' : '') + ', ' + m[3] + ' तक'; }],
+    [/^Contains: (.+)$/, function (m) { return 'इसमें है: ' + m[1].split(', ').map(T).join(', '); }],
+    [/^Goes well with your order\. Combo saves (.+)$/, function (m) { return 'आपके ऑर्डर के साथ अच्छा लगेगा। कॉम्बो में ' + m[1] + ' बचत।'; }],
+    [/^Collect around (.+)$/, function (m) { return 'लगभग ' + m[1] + ' पर लेने आएँ'; }],
+    [/^Pay my share (₹[\d,.]+)$/, function (m) { return 'अपना हिस्सा दें ' + m[1]; }]
+  );
   function nameSub(c) {
     var out = c, ch = false;
     NAME_KEYS.forEach(function (k) { if (out.indexOf(k) >= 0) { out = out.split(k).join(NAMES_HI[k]); ch = true; } });
@@ -991,6 +1101,8 @@ window.FIREBASE_CONFIG = {
   if (!Array.isArray(dismissed)) dismissed = [];
   var type = 'pickup';
   var q = '', vegOnly = false, favOnly = false;
+  var avoid = load('cc-avoid', {}), queueDoc = null, splitN = {}, splitOpen = {};
+  if (!avoid || typeof avoid !== 'object' || Array.isArray(avoid)) avoid = {};
   var promoCode = '', promoErr = '';
   var order = null, booking = null, timers = [];
   var optItem = null, optSel = null, lastOpts = {};
@@ -1053,18 +1165,21 @@ window.FIREBASE_CONFIG = {
   }
 
   function totals() {
-    var sub = 0, n = 0, coffeeMin = null, hasDrink = false, hasFood = false;
+    var sub = 0, n = 0, coffeeMin = null, hasDrink = false, hasFood = false, hh = 0;
     Object.keys(cart).forEach(function (k) {
       var l = cart[k], it = byId[l.id], up = unitPrice(l.id, l);
       sub += up * l.qty;
+      var hf = hhFor(it);
+      if (hf) hh += Math.round(up * l.qty * hf.pct / 100);
       n += l.qty;
       if (it.kind === 'coffee') coffeeMin = coffeeMin === null ? up : Math.min(coffeeMin, up);
       if (it.kind === 'coffee' || it.kind === 'drink') hasDrink = true;
       if (it.kind === 'food') hasFood = true;
     });
-    var reward = rewardReady() && coffeeMin !== null ? coffeeMin : 0;
-    var combo = hasDrink && hasFood ? Math.min(COMBO, sub - reward) : 0;
-    var base = sub - reward - combo;
+    hh = Math.min(hh, sub);
+    var reward = rewardReady() && coffeeMin !== null ? Math.min(coffeeMin, sub - hh) : 0;
+    var combo = hasDrink && hasFood ? Math.max(0, Math.min(COMBO, sub - hh - reward)) : 0;
+    var base = sub - hh - reward - combo;
     var promo = 0, promoMsg = '';
     var po = offerFor(promoCode);
     if (po) {
@@ -1075,7 +1190,7 @@ window.FIREBASE_CONFIG = {
     var taxable = base - promo;
     var gst = Math.round(taxable * GST * 100) / 100;
     return {
-      sub: sub, n: n, reward: reward, combo: combo, promo: promo, promoMsg: promoMsg, gst: gst,
+      sub: sub, n: n, hh: hh, hhPct: hh > 0 ? (hhActive() || {}).pct : 0, reward: reward, combo: combo, promo: promo, promoMsg: promoMsg, gst: gst,
       total: Math.round((taxable + gst) * 100) / 100,
       rewardWaiting: rewardReady() && coffeeMin === null && n > 0,
       comboHint: n > 0 && ((hasDrink && !hasFood) || (!hasDrink && hasFood))
@@ -1125,9 +1240,9 @@ window.FIREBASE_CONFIG = {
     var c = cfgOf(i.id), bd = badgeOf(i.id);
     return '<li class="item' + (c.img ? ' has-img' : '') + (c.soldOut ? ' out' : '') + '">' + (c.img ? '<img class="thumb" src="' + esc(c.img) + '" alt="" loading="lazy">' : '') +
       '<div class="info"><div class="nm"><span class="mark ' + (i.veg ? 'veg' : 'nonveg') + '" role="img" aria-label="' + (i.veg ? 'Vegetarian' : 'Non-vegetarian') + '"></span><h3>' + esc(i.name) + '</h3>' +
-      (bd ? '<span class="tag ' + bd + '">' + esc(BADGES[bd]) + '</span>' : '') + (i.tag ? '<span class="tag own">' + esc(i.tag) + '</span>' : '') +
+      (bd ? '<span class="tag ' + bd + '">' + esc(BADGES[bd]) + '</span>' : '') + (i.tag ? '<span class="tag own">' + esc(i.tag) + '</span>' : '') + (hhFor(i) ? '<span class="tag hh">Happy hour −' + hhFor(i).pct + '%</span>' : '') +
       '<button type="button" class="fav" data-action="fav" data-id="' + i.id + '" aria-pressed="' + fav + '" aria-label="Favourite ' + esc(i.name) + '">' + HEART + '</button></div>' +
-      '<p>' + esc(i.desc) + '</p><span class="price">' + (i.custom ? 'from ' : '') + (i.listPrice > i.price ? '<s class="was">' + fmt(i.listPrice) + '</s> ' : '') + fmt(i.price) + '</span></div>' +
+      '<p>' + esc(i.desc) + '</p>' + (i.allergens.length ? '<p class="allg">Contains: ' + i.allergens.map(function (a) { return ALLERGENS[a]; }).join(', ') + '</p>' : '') + '<span class="price">' + (i.custom ? 'from ' : '') + (i.listPrice > i.price ? '<s class="was">' + fmt(i.listPrice) + '</s> ' : '') + fmt(i.price) + '</span></div>' +
       '<div class="ctl" data-ctl="' + i.id + '">' + menuCtl(i.id) + '</div></li>';
   }
   function visibleItems(c) {
@@ -1135,6 +1250,7 @@ window.FIREBASE_CONFIG = {
       if (i.hidden) return false;
       if (vegOnly && !i.veg) return false;
       if (favOnly && !favs[i.id]) return false;
+      if (avoided(i)) return false;
       if (q && (i.name + ' ' + i.desc).toLowerCase().indexOf(q) < 0) return false;
       return true;
     });
@@ -1155,6 +1271,7 @@ window.FIREBASE_CONFIG = {
     }
     $('menu').innerHTML = html;
     $('chips').innerHTML = chipHtml;
+    renderBanners();
     if (io) {
       io.disconnect();
       Array.prototype.forEach.call(document.querySelectorAll('.cat'), function (s) { io.observe(s); });
@@ -1210,6 +1327,7 @@ window.FIREBASE_CONFIG = {
   function renderTotals() {
     var t = totals();
     var h = '<div><span>Subtotal</span><span>' + fmt(t.sub) + '</span></div>';
+    if (t.hh > 0) h += '<div class="save"><span>Happy hour (' + t.hhPct + '% off)</span><span>−' + fmt(t.hh) + '</span></div>';
     if (t.reward > 0) h += '<div class="save"><span>Free coffee (stamp card)</span><span>−' + fmt(t.reward) + '</span></div>';
     if (t.combo > 0) h += '<div class="save"><span>Drink + bite combo</span><span>−' + fmt(t.combo) + '</span></div>';
     if (t.promo > 0) h += '<div class="save"><span>' + esc(promoCode) + '</span><span>−' + fmt(t.promo) + '</span></div>';
@@ -1220,6 +1338,9 @@ window.FIREBASE_CONFIG = {
     if (t.rewardWaiting) hints += '<p class="hint ok">Your free coffee is ready. Add any coffee to use it.</p>';
     if (t.comboHint) hints += '<p class="hint ok">Add a drink and a bite together to save ' + fmt(COMBO) + '.</p>';
     $('hints').innerHTML = hints;
+    var wi = waitInfo();
+    if (wi) $('hints').innerHTML += '<p class="hint">Wait right now: about ' + wi.min + ' min</p>';
+    renderUpsell();
     $('place').textContent = 'Place order · ' + fmt(t.total);
     $('place').disabled = t.n === 0;
     renderPromoMsg(t);
@@ -1355,11 +1476,11 @@ window.FIREBASE_CONFIG = {
   function isLive(o) { return stageFor(o) < 3; }
   function stageName(o, s) { if (myStatus.stages && myStatus.stages[o.id] === 4) return 'Cancelled by the cafe'; return s === 2 ? (o.type === 'dinein' ? 'At your table' : 'Ready to collect') : STAGE_NAMES[s]; }
 
-  function upiLink(o) {
-    var u = String(setting('upi', '')).trim();
-    if (!/^[A-Za-z0-9._-]{2,}@[A-Za-z][A-Za-z0-9]{1,}$/.test(u) || !(+o.total > 0)) return '';
+  function upiLink(o, amt) {
+    var u = String(setting('upi', '')).trim(), am = amt != null ? +amt : +o.total;
+    if (!/^[A-Za-z0-9._-]{2,}@[A-Za-z][A-Za-z0-9]{1,}$/.test(u) || !(am > 0)) return '';
     return 'upi://pay?pa=' + encodeURIComponent(u) + '&pn=' + encodeURIComponent(setting('payee', 'Corner Cup')) +
-      '&am=' + (+o.total).toFixed(2) + '&cu=INR&tn=' + encodeURIComponent('Order ' + (o.token || ''));
+      '&am=' + am.toFixed(2) + '&cu=INR&tn=' + encodeURIComponent('Order ' + (o.token || ''));
   }
   function payHTML(o) {
     var l = upiLink(o);
@@ -1482,6 +1603,10 @@ window.FIREBASE_CONFIG = {
       updateAll();
       renderStaff();
     }, function () {});
+    db.doc('queue/now').onSnapshot(function (s) {
+      queueDoc = s.exists ? s.data() : null;
+      renderBanners(); renderTotals();
+    }, function () {});
     db.collection('tables').onSnapshot(function (snap) {
       var m = {};
       snap.docs.forEach(function (d) {
@@ -1577,6 +1702,7 @@ window.FIREBASE_CONFIG = {
       return '<li><span>' + esc(l.q + ' × ' + l.name) + (l.sub ? '<small>' + esc(l.sub) + '</small>' : '') + '</span><span>' + fmt(l.amt) + '</span></li>';
     }).join('');
     var tot = '<div><span>Subtotal</span><span>' + fmt(r.sub) + '</span></div>';
+    if (r.hh > 0) tot += '<div><span>Happy hour</span><span>−' + fmt(r.hh) + '</span></div>';
     if (r.reward > 0) tot += '<div><span>Free coffee (stamp card)</span><span>−' + fmt(r.reward) + '</span></div>';
     if (r.combo > 0) tot += '<div><span>Drink + bite combo</span><span>−' + fmt(r.combo) + '</span></div>';
     if (r.promo > 0) tot += '<div><span>' + esc(r.code || 'Promo') + '</span><span>−' + fmt(r.promo) + '</span></div>';
@@ -1648,6 +1774,7 @@ window.FIREBASE_CONFIG = {
       });
       dash(); y += 28;
       pair('Subtotal', fmt(r.sub));
+      if (r.hh > 0) pair('Happy hour', '−' + fmt(r.hh));
       if (r.reward > 0) pair('Free coffee (stamp card)', '−' + fmt(r.reward));
       if (r.combo > 0) pair('Drink + bite combo', '−' + fmt(r.combo));
       if (r.promo > 0) pair(r.code || 'Promo', '−' + fmt(r.promo));
@@ -1699,12 +1826,13 @@ window.FIREBASE_CONFIG = {
   function renderDone() {
     if (!order) return;
     $('done-token').textContent = order.token;
-    $('done-eta').textContent = order.stage < 2 ? 'Ready in about ' + order.eta + ' min' : stageName(order, 2);
+    $('done-eta').textContent = order.stage < 2 ? (order.due ? 'Collect around ' + clock(order.due) : 'Ready in about ' + order.eta + ' min') : stageName(order, 2);
     $('done-meta').textContent = (order.type === 'dinein' ? 'Table ' + order.table : 'Pickup for ' + order.name) + ' · ' + PAY.counter;
     $('done-steps').innerHTML = stepsHTML(order, order.stage);
     $('done-live').textContent = 'Order status: ' + stageName(order, order.stage);
     $('done-receipt').innerHTML = receiptHTML(order, order.stage);
     slot('done-pay', $('done-receipt')).innerHTML = order.shared ? payHTML(order) : '';
+    slot('done-split', $('done-receipt')).innerHTML = splitHTML(order);
     renderRate('done-rate', order, order.stage);
     $('done-stamp').textContent = order.stampMsg || '';
     $('done-stamp').hidden = !order.stampMsg;
@@ -1763,6 +1891,7 @@ window.FIREBASE_CONFIG = {
     $('mr-steps').innerHTML = stepsHTML(o, s);
     $('mr-receipt').innerHTML = receiptHTML(o, s);
     slot('mr-pay', $('mr-receipt')).innerHTML = o.demo ? '' : payHTML(o);
+    slot('mr-split', $('mr-receipt')).innerHTML = splitHTML(o);
     renderRate('mr-rate', o, s);
   }
   function showMineList() {
@@ -1993,8 +2122,30 @@ window.FIREBASE_CONFIG = {
         if (t === 'veg') vegOnly = !vegOnly; else favOnly = !favOnly;
         btn.setAttribute('aria-pressed', String(t === 'veg' ? vegOnly : favOnly));
         renderMenu();
+      } else if (a === 'avoid') {
+        if (avoid[id]) delete avoid[id]; else avoid[id] = true;
+        save('cc-avoid', avoid);
+        renderMenu();
+        var av2 = document.querySelector('[data-action="avoid"][data-id="' + id + '"]'); if (av2) av2.focus();
+      } else if (a === 'upsell') {
+        var ui = byId[id];
+        if (ui && !itemGone(id)) addLine(id, ui.custom ? (lastOpts[id] || { size: 'reg', milk: 'dairy', sugar: 'normal' }) : {});
+      } else if (a === 'splittog') {
+        splitOpen[id] = !splitOpen[id]; if (!splitN[id]) splitN[id] = 2;
+        rerenderSplit();
+      } else if (a === 'splitn') {
+        splitN[id] = Math.max(2, Math.min(10, (splitN[id] || 2) + (+btn.getAttribute('data-d') || 0)));
+        rerenderSplit();
+        var sb = document.querySelector('[data-action="splitn"][data-id="' + id + '"][data-d="' + btn.getAttribute('data-d') + '"]'); if (sb) sb.focus();
+      } else if (a === 'irate') {
+        var ioid = btn.getAttribute('data-oid'), iid = btn.getAttribute('data-iid'), iv = +btn.getAttribute('data-v');
+        var ird = rateDraft[ioid] || (rateDraft[ioid] = { stars: 0, text: '' });
+        ird.items = ird.items || {};
+        if (ird.items[iid] === iv) delete ird.items[iid]; else ird.items[iid] = iv;
+        rerenderRates();
+        var ib = document.querySelector('[data-action="irate"][data-oid="' + ioid + '"][data-iid="' + iid + '"][data-v="' + iv + '"]'); if (ib) ib.focus();
       } else if (a === 'clearf') {
-        q = ''; vegOnly = false; favOnly = false;
+        q = ''; vegOnly = false; favOnly = false; avoid = {}; save('cc-avoid', avoid);
         $('q').value = '';
         Array.prototype.forEach.call(document.querySelectorAll('[data-action="tog"]'), function (b) { b.setAttribute('aria-pressed', 'false'); });
         renderMenu();
@@ -2133,7 +2284,11 @@ window.FIREBASE_CONFIG = {
         if (upi && !/^[A-Za-z0-9._-]{2,}@[A-Za-z][A-Za-z0-9]{1,}$/.test(upi)) { setMsg = 'That UPI ID does not look right. It looks like name@bank.'; renderStaff(true); return; }
         if (gl && !/^https:\/\//.test(gl)) { setMsg = 'The Google link must start with https://'; renderStaff(true); return; }
         if (lm < 3 || lm > 120) { setMsg = 'Late minutes must be between 3 and 120.'; renderStaff(true); return; }
-        menuWrite('settings', { upi: upi, payee: payee, google: gl, lateMin: lm }).then(function () { setMsg = menuNote || 'Saved.'; renderStaff(true); });
+        var hhOn = $('st-hhon') && $('st-hhon').checked, hhFrom = $('st-hhfrom') ? $('st-hhfrom').value : '', hhUntil = $('st-hhuntil') ? $('st-hhuntil').value : '', hhPct = Math.round(+($('st-hhpct') ? $('st-hhpct').value : 0) || 0);
+        var hhSecs = Array.prototype.map.call(document.querySelectorAll('[data-hhsec]:checked'), function (e) { return e.getAttribute('data-hhsec'); }).join(',');
+        if (hhOn && (!hhFrom || !hhUntil || hhFrom === hhUntil)) { setMsg = 'Happy hour: choose different From and Until times.'; renderStaff(true); return; }
+        if (hhOn && (hhPct < 1 || hhPct > 90)) { setMsg = 'Happy hour discount must be between 1 and 90.'; renderStaff(true); return; }
+        menuWrite('settings', { upi: upi, payee: payee, google: gl, lateMin: lm, hhOn: hhOn ? '1' : '', hhFrom: hhFrom, hhUntil: hhUntil, hhPct: hhPct, hhSecs: hhSecs }).then(function () { setMsg = menuNote || 'Saved.'; renderStaff(true); });
       } else if (a === 'autohi') {
         autoHindi(id);
       } else if (a === 'dlcust') {
@@ -2204,9 +2359,19 @@ window.FIREBASE_CONFIG = {
     renderMenu();
   });
 
+  var PICKS = [[0, 'Now'], [15, 'In 15 minutes'], [30, 'In 30 minutes'], [45, 'In 45 minutes'], [60, 'In 1 hour']];
+  (function () {
+    var tf = $('table-field');
+    if (!tf || MODE !== 'customer') return;
+    var d = document.createElement('div');
+    d.className = 'field'; d.id = 'pick-field';
+    d.innerHTML = '<label class="fl" for="f-when">When will you collect it?</label><select id="f-when">' + PICKS.map(function (p) { return '<option value="' + p[0] + '">' + p[1] + '</option>'; }).join('') + '</select>';
+    tf.parentNode.insertBefore(d, tf);
+  })();
   Array.prototype.forEach.call(document.querySelectorAll('input[name="type"]'), function (r) {
     r.addEventListener('change', function () {
       type = r.value;
+      if ($('pick-field')) $('pick-field').hidden = type !== 'pickup';
       $('table-field').hidden = type !== 'dinein';
     });
   });
@@ -2257,7 +2422,7 @@ window.FIREBASE_CONFIG = {
       var l = cart[k], it = byId[l.id];
       return { id: l.id, q: l.qty, size: l.size, milk: l.milk, sugar: l.sugar, name: it.name, sub: optLabel(l.id, l), amt: unitPrice(l.id, l) * l.qty };
     });
-    var rec = { lines: lines, sub: t.sub, reward: t.reward, combo: t.combo, promo: t.promo, code: t.promo > 0 ? promoCode : '', gst: t.gst, total: t.total };
+    var rec = { lines: lines, sub: t.sub, hh: t.hh, hhPct: t.hhPct || 0, reward: t.reward, combo: t.combo, promo: t.promo, code: t.promo > 0 ? promoCode : '', gst: t.gst, total: t.total };
     var items = lines.map(function (l) { return { t: l.q + ' × ' + l.name, sub: l.sub }; });
 
     var stampMsg, newStamps;
@@ -2270,10 +2435,13 @@ window.FIREBASE_CONFIG = {
     }
 
     var id = newId('o');
+    var pickIn = type === 'pickup' && $('f-when') ? (+$('f-when').value || 0) : 0;
+    var wi = waitInfo(), eta = wi ? Math.min(45, wi.min + Math.min(10, t.n)) : Math.min(25, 6 + 2 * t.n);
     var payload = {
       id: id, token: 'CC-' + (100 + Math.floor(Math.random() * 900)), type: type, table: table, name: name, phone: phone, pay: 'counter',
-      note: $('f-note').value.trim(), eta: Math.min(25, 6 + 2 * t.n), placedAt: Date.now(), items: items, total: t.total, rec: rec
+      note: $('f-note').value.trim(), eta: eta, placedAt: Date.now(), items: items, total: t.total, rec: rec
     };
+    if (pickIn) { payload.pickIn = pickIn; payload.due = Date.now() + pickIn * 60000; }
 
     $('place').disabled = true;
     placeError('');
@@ -2318,6 +2486,7 @@ window.FIREBASE_CONFIG = {
       promoCode = ''; promoErr = '';
       $('f-promo').value = '';
       $('f-note').value = '';
+      if ($('f-when')) $('f-when').value = '0';
       updateAll();
       renderStamps();
       renderTrack();
@@ -2450,6 +2619,7 @@ window.FIREBASE_CONFIG = {
       });
       if (fresh) beep();
       recordSales();
+      pushQueue();
     });
     sub('calls', function (snap) {
       var list = snap.docs.map(function (d) { return Object.assign({ uid: d.id }, d.data() || {}); }), fresh = false;
@@ -2484,12 +2654,24 @@ window.FIREBASE_CONFIG = {
       snap.docs.forEach(function (d) { m[d.id] = d.data() || {}; });
       staffData.status = m;
       recordSales();
+      pushQueue();
     });
     if (isOwner) sub('customers', function (snap) { staffData.customers = snap.docs.map(function (d) { return d.data() || {}; }); });
     staffTimer = setTimeout(function () {
       if (!(staffLoaded.orders && staffLoaded.bookings && staffLoaded.status && staffLoaded.customers)) { staffSlow = true; renderStaff(); }
     }, 10000);
   }
+  var queueSent = { n: -1, at: 0 };
+  var queueTimer = null;
+  function pushQueue() { clearTimeout(queueTimer); queueTimer = setTimeout(pushQueueNow, 600); }
+  function pushQueueNow() {
+    if (!db || !isStaff || !staffLoaded.orders || !staffLoaded.status) return;
+    var n = staffData.orders.filter(function (o) { return staffStage(o) < 2 && o.placedAt && Date.now() - o.placedAt < STALE_MS; }).length;
+    if (n === queueSent.n && Date.now() - queueSent.at < 120000) return;
+    queueSent = { n: n, at: Date.now() };
+    db.doc('queue/now').set({ n: n, at: Date.now() }).then(function () {}, function () { queueSent.at = Date.now() - 60000; });
+  }
+  setInterval(function () { if (MODE === 'staff') pushQueue(); }, 60000);
   function staffStage(o) {
     var s = staffData.status[o.uid];
     var n = s && s.stages && s.stages[o.id];
@@ -2872,6 +3054,14 @@ window.FIREBASE_CONFIG = {
       '<div class="panel"><h3>Google reviews</h3><div class="field"><label class="fl" for="st-google">Your Google review link</label><input id="st-google" type="url" autocapitalize="off" value="' + esc(st.google || '') + '" placeholder="https://..."></div>' +
       '<p class="fine">Customers who give 4 or 5 stars see a button to rate you on Google too. Open your cafe in Google Maps, tap Share and copy the link here.</p></div>' +
       '<div class="panel"><h3>Kitchen</h3><div class="field"><label class="fl" for="st-late">Mark an order late after (minutes)</label><input id="st-late" type="number" inputmode="numeric" min="3" max="120" value="' + esc(st.lateMin || 10) + '"></div></div>' +
+      '<div class="panel"><h3>Happy hour</h3><label class="check"><input type="checkbox" id="st-hhon"' + (st.hhOn ? ' checked' : '') + '><span>Happy hour discount is on</span></label>' +
+      '<div class="pair"><div class="field"><label class="fl" for="st-hhfrom">From</label><input id="st-hhfrom" type="time" value="' + esc(st.hhFrom || '15:00') + '"></div>' +
+      '<div class="field"><label class="fl" for="st-hhuntil">Until</label><input id="st-hhuntil" type="time" value="' + esc(st.hhUntil || '17:00') + '"></div></div>' +
+      '<div class="field"><label class="fl" for="st-hhpct">Discount (%)</label><input id="st-hhpct" type="number" inputmode="numeric" min="1" max="90" value="' + esc(st.hhPct || 20) + '"></div>' +
+      '<fieldset class="allg-set"><legend class="fl">Which sections? (tick none for the whole menu)</legend><div class="allg-row">' + MENU.map(function (c) {
+        return '<label class="check"><input type="checkbox" data-hhsec="' + esc(c.id) + '"' + (String(st.hhSecs || '').split(',').indexOf(c.id) >= 0 ? ' checked' : '') + '><span>' + esc(c.cat) + '</span></label>';
+      }).join('') + '</div></fieldset>' +
+      '<p class="fine">In these hours the chosen items get this much off, and customers see a Happy hour banner. It starts and ends by itself every day.</p></div>' +
       '<div class="t-btns"><button type="button" class="btn-fill" data-action="stsave">Save settings</button></div>' +
       '<div class="panel"><h3>Add kitchen staff</h3><p class="fine">1) Firebase, Authentication, Users, Add user (email and password). 2) Firebase, Firestore, Rules: add the same email in the staff list. Kitchen staff see only Orders, Kitchen, Bookings, Tables and QR code.</p></div>';
   }
@@ -2895,7 +3085,7 @@ window.FIREBASE_CONFIG = {
   }
   var kname = String(load('cc-kname', '') || ''), kitchenBig = false, wakeLock = null, lateSeen = {}, blockedLocal = {};
   function lateMin() { return Math.min(120, Math.max(3, +setting('lateMin', 10) || 10)); }
-  function isLate(o) { return staffStage(o) < 2 && o.placedAt && (Date.now() - o.placedAt) / 60000 >= lateMin(); }
+  function isLate(o) { var base = o.due || o.placedAt; return staffStage(o) < 2 && base && (Date.now() - base) / 60000 >= lateMin(); }
   function byName(o) { var st = staffData.status[o.uid]; return (st && st.by && st.by[o.id]) || ''; }
   function maskPhone(ph) { ph = String(ph || ''); return ph ? '••••• ' + ph.slice(-4) : ''; }
   function isBlocked(ph) { return !!(staffData.blocked[ph] || blockedLocal[ph]); }
@@ -2977,8 +3167,12 @@ window.FIREBASE_CONFIG = {
       '<div class="field"><label class="fl" for="mi-offer">Offer price (₹, optional)</label><input id="mi-offer" type="number" inputmode="numeric" min="0" value="' + esc(v('offer', offerNow)) + '" placeholder="Cheaper price"></div></div>' +
       '<div class="pair"><div class="field"><label class="fl" for="mi-veg">Type</label><select id="mi-veg">' + opt('1', 'Veg', v('veg', (isNew || it.veg) ? '1' : '0')) + opt('0', 'Non-veg', v('veg', (isNew || it.veg) ? '1' : '0')) + '</select></div>' +
       '<div class="field"><label class="fl" for="mi-sec">Section</label><select id="mi-sec">' + secOpts + '</select></div></div>' +
-      '<div class="pair"><div class="field"><label class="fl" for="mi-badge">Badge</label><select id="mi-badge">' + opt('', 'No badge', v('badge', bd)) + opt('bestseller', 'Bestseller', v('badge', bd)) + opt('chef', "Chef's pick", v('badge', bd)) + opt('new', 'New', v('badge', bd)) + '</select></div>' +
+      '<div class="pair"><div class="field"><label class="fl" for="mi-badge">Badge</label><select id="mi-badge">' + opt('', 'No badge', v('badge', bd)) + opt('bestseller', 'Bestseller', v('badge', bd)) + opt('chef', "Chef's pick", v('badge', bd)) + opt('new', 'New', v('badge', bd)) + opt('spicy', 'Spicy', v('badge', bd)) + opt('vegan', 'Vegan', v('badge', bd)) + '</select></div>' +
       '<div class="field"><label class="fl" for="mi-tag">Own tag (optional)</label><input id="mi-tag" type="text" maxlength="20" value="' + esc(v('tag', isNew ? '' : it.tag)) + '" placeholder="e.g. Spicy"></div></div>';
+    var al = v('allg', isNew ? [] : it.allergens);
+    h += '<fieldset class="allg-set"><legend class="fl">Contains (customers can filter by this)</legend><div class="allg-row">' + Object.keys(ALLERGENS).map(function (k) {
+      return '<label class="check"><input type="checkbox" data-allg="' + k + '"' + (al.indexOf(k) >= 0 ? ' checked' : '') + '><span>' + ALLERGENS[k] + '</span></label>';
+    }).join('') + '</div></fieldset>';
     var cf0 = isNew ? {} : cfgOf(it.id);
     h += '<p class="fine">Hindi for customers (optional). Leave empty to show English.</p>' +
       '<div class="field"><label class="fl" for="mi-nameHi">Name in Hindi</label><input id="mi-nameHi" type="text" value="' + esc(v('nameHi', cf0.nameHi || '')) + '" placeholder="जैसे: दाल मखनी"></div>' +
@@ -3042,7 +3236,7 @@ window.FIREBASE_CONFIG = {
   function numOrEmpty(x) { return x === '' ? '' : x; }
   function readItemDraft(forId) {
     var g = function (id) { var e = $(id); return e ? e.value : ''; };
-    menuDraft = { for: forId, name: g('mi-name'), desc: g('mi-desc'), price: g('mi-price'), offer: g('mi-offer'), veg: g('mi-veg'), sec: g('mi-sec'), badge: g('mi-badge'), tag: g('mi-tag'), nameHi: g('mi-nameHi'), descHi: g('mi-descHi'), tagHi: g('mi-tagHi'), custom: g('mi-custom'), img: menuDraft.img || '' };
+    menuDraft = { for: forId, name: g('mi-name'), desc: g('mi-desc'), price: g('mi-price'), offer: g('mi-offer'), veg: g('mi-veg'), sec: g('mi-sec'), badge: g('mi-badge'), tag: g('mi-tag'), nameHi: g('mi-nameHi'), descHi: g('mi-descHi'), tagHi: g('mi-tagHi'), custom: g('mi-custom'), img: menuDraft.img || '', allg: Array.prototype.map.call(document.querySelectorAll('[data-allg]:checked'), function (e) { return e.getAttribute('data-allg'); }) };
     return menuDraft;
   }
   function hiTranslate(text) {
@@ -3070,7 +3264,7 @@ window.FIREBASE_CONFIG = {
     if (!d.name.trim()) { menuNote = 'Write the item name.'; return renderStaff(true); }
     if (!price) { menuNote = 'Enter the price in rupees.'; return renderStaff(true); }
     if (offer && offer >= price) { menuNote = 'Offer price must be less than the price. Leave it empty for no offer.'; return renderStaff(true); }
-    var patch = { name: d.name.trim(), desc: d.desc.trim(), price: price, offer: offer, veg: d.veg !== '0', sec: d.sec, badge: d.badge, tag: d.tag.trim(), nameHi: (d.nameHi || '').trim(), descHi: (d.descHi || '').trim(), tagHi: (d.tagHi || '').trim() };
+    var patch = { name: d.name.trim(), desc: d.desc.trim(), price: price, offer: offer, veg: d.veg !== '0', sec: d.sec, badge: d.badge, tag: d.tag.trim(), nameHi: (d.nameHi || '').trim(), descHi: (d.descHi || '').trim(), tagHi: (d.tagHi || '').trim(), allergens: d.allg || [] };
     if (isNew) {
       id = 'own-' + Date.now().toString(36);
       patch.own = true; patch.at = Date.now(); patch.soldOut = false; patch.custom = d.custom || ''; patch.img = d.img || '';
@@ -3219,6 +3413,12 @@ window.FIREBASE_CONFIG = {
             (f.text ? '<p>' + esc(f.text) + '</p>' : '') + '</div>';
         }).join('') + '</div>';
     } else h += '<p class="snote">No ratings yet. Customers can rate after their order is ready.</p>';
+    var ir = {};
+    fb.forEach(function (f) { var it = f.items || {}; Object.keys(it).forEach(function (k) { var x = ir[k] || (ir[k] = { up: 0, down: 0 }); if (it[k] > 0) x.up++; else x.down++; }); });
+    var ik = Object.keys(ir).sort(function (a, b) { return (ir[b].up + ir[b].down) - (ir[a].up + ir[a].down); });
+    h += '<h3 class="mt-h">Item feedback</h3>' + (ik.length ? '<ul class="clist">' + ik.map(function (k) {
+      return '<li class="crow"><div><p class="c-name">' + esc(byId[k] ? byId[k].name : k) + '</p></div><div class="c-act"><b>👍 ' + ir[k].up + '   👎 ' + ir[k].down + '</b></div></li>';
+    }).join('') + '</ul>' : '<p class="snote">No item feedback yet. After an order is ready, customers can tap thumbs up or down for each item.</p>');
     h += '<p class="fine">Sales are saved day by day from now on. Days before this update may show less, because only each customer\'s latest 8 orders were kept.</p>';
     return h;
   }
@@ -3233,7 +3433,7 @@ window.FIREBASE_CONFIG = {
     }).join('');
     return '<li class="ticket' + (st === 0 ? ' new' : '') + (late ? ' late' : '') + '">' +
       '<div class="t-head"><span class="t-token">' + esc(o.token) + '</span><span class="pill ' + (rej ? 'bad' : 's' + st) + '">' + (rej ? 'Rejected' : STAGE_NAMES[st] + (by ? ' · ' + esc(by) : '')) + '</span></div>' +
-      '<p class="t-meta">' + esc(o.name) + (o.phone ? ' · ' + esc(isOwner ? showPhone(o.phone) : maskPhone(o.phone)) : '') + ' · ' + (o.type === 'dinein' ? 'Table ' + esc(o.table) : 'Pickup') + ' · ' + clock(o.placedAt) + (st < 3 ? ' (' + mins + ' min ago)' + (late ? ' <b class="late-tag">LATE</b>' : '') : '') + '</p>' +
+      '<p class="t-meta">' + esc(o.name) + (o.phone ? ' · ' + esc(isOwner ? showPhone(o.phone) : maskPhone(o.phone)) : '') + ' · ' + (o.type === 'dinein' ? 'Table ' + esc(o.table) : 'Pickup') + ' · ' + clock(o.placedAt) + (o.due ? ' · COLLECT AT ' + clock(o.due) : '') + (st < 3 ? ' (' + mins + ' min ago)' + (late ? ' <b class="late-tag">LATE</b>' : '') : '') + '</p>' +
       '<ul class="t-rows">' + items + '</ul>' +
       (o.note ? '<p class="t-note">Note: ' + esc(o.note) + '</p>' : '') +
       '<div class="t-foot"><strong>' + fmt(o.total) + ' · ' + (rej ? 'Not served' : st >= 3 ? 'Paid' : 'To collect') + '</strong>' +

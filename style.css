@@ -418,3 +418,31 @@ img, svg, video { max-width: 100%; }
 #staff-body.kbig .t-rows li { font-size: 22px; }
 #staff-body.kbig .t-foot .btn-fill, #staff-body.kbig .t-foot .btn-line { min-height: 60px; font-size: 20px; }
 #staff-body.kbig .kcols { grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); }
+
+/* v11 features */
+.tag.spicy { background: var(--warn-bg); color: var(--warn); }
+.tag.vegan { border: 1px solid var(--accent); color: var(--accent); }
+.tag.hh { background: var(--accent); color: var(--accent-ink); }
+.banner, .waitchip { margin: 10px 0; padding: 10px 14px; border-radius: 12px; font-size: 14px; font-weight: 600; }
+.banner { background: var(--accent-soft); color: var(--accent); }
+.waitchip { border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-weight: 500; }
+.avoid { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
+.avoid .a-lbl { font-size: 14px; font-weight: 600; }
+.avoid .fine { flex-basis: 100%; }
+.allg { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.upsell { margin: 10px 0; padding: 12px; border: 1px dashed var(--accent); border-radius: 12px; display: grid; gap: 8px; }
+.u-title { font-weight: 600; font-size: 14px; }
+.u-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.u-btn { display: inline-flex; gap: 6px; align-items: center; min-height: 44px; padding: 8px 12px; border: 1px solid var(--accent); border-radius: 999px; background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; }
+.u-btn em { font-style: normal; color: var(--muted); }
+.split { margin: 12px 0; display: grid; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; }
+.split-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.split-amt { font-size: 18px; }
+.split a.btn-line, .split a.place { text-align: center; text-decoration: none; display: flex; align-items: center; justify-content: center; }
+.irate { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.irate > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.ibtns { display: flex; gap: 6px; }
+.ithumb { min-width: 44px; min-height: 44px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); font-size: 20px; }
+.ithumb[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+.allg-set { border: 0; padding: 0; margin: 4px 0; min-width: 0; }
+.allg-row { display: flex; flex-wrap: wrap; gap: 12px; }
