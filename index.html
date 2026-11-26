@@ -570,13 +570,15 @@ window.FIREBASE_CONFIG = {
     if (!o || o.demo || !o.shared || stageFor(o) >= 3 || !(+o.total > 0)) return '';
     var id = esc(o.id);
     if (!splitOpen[o.id]) return '<div class="split"><button type="button" class="btn-line" data-action="splittog" data-id="' + id + '">Split the bill with friends</button></div>';
-    var n = splitN[o.id] || 2, per = shareAmt(o, n), pay = upiLink(o, per), u = String(setting('upi', '')).trim();
+    var n = splitN[o.id] || 2, sent = splitSent[o.id] || 0, per = shareAmt(o, n), pay = upiLink(o, per), u = String(setting('upi', '')).trim();
     var msg = 'Corner Cup bill ' + o.token + ': total ' + fmt(o.total) + ', split ' + n + ' ways. Each person pays ' + fmt(per) + (pay ? '. UPI ID: ' + u : '. Pay at the counter.');
     return '<div class="split"><p class="u-title">Split the bill</p>' +
       '<div class="split-row"><span>People</span><div class="step"><button type="button" data-action="splitn" data-id="' + id + '" data-d="-1" aria-label="One person less">−</button><output aria-live="polite">' + n + '</output><button type="button" data-action="splitn" data-id="' + id + '" data-d="1" aria-label="One more person">+</button></div></div>' +
       '<p class="split-amt"><span>Each pays</span> <strong>' + fmt(per) + '</strong></p>' +
       (pay ? '<a class="place paylink" href="' + esc(pay) + '">Pay my share ' + fmt(per) + '</a>' : '') +
-      '<a class="btn-line" target="_blank" rel="noopener" href="https://wa.me/?text=' + encodeURIComponent(msg) + '">Send to friends on WhatsApp</a>' +
+      (sent < n - 1
+        ? '<a class="btn-line" target="_blank" rel="noopener" data-action="splitsent" data-id="' + id + '" href="https://wa.me/?text=' + encodeURIComponent(msg) + '">Send to a friend on WhatsApp (' + sent + ' of ' + (n - 1) + ' sent)</a>'
+        : '<p class="fine">All ' + (n - 1) + ' friends have been sent. Increase the people number to send to more.</p>') +
       '<button type="button" class="btn-line" data-action="splittog" data-id="' + id + '">Close</button></div>';
   }
   function rerenderSplit() { if (order) renderDone(); if (mineSel) renderMineReceipt(); }
@@ -971,6 +973,8 @@ window.FIREBASE_CONFIG = {
 
   HIP.push(
     [/^Our cafe has only (\d+) tables\. Enter a table number from 1 to (\d+)\.$/, function (m) { return 'हमारे कैफ़े में सिर्फ़ ' + m[1] + ' टेबल हैं। 1 से ' + m[2] + ' के बीच का टेबल नंबर लिखें।'; }],
+    [/^Send to a friend on WhatsApp \((\d+) of (\d+) sent\)$/, function (m) { return 'WhatsApp पर एक दोस्त को भेजें (' + m[2] + ' में से ' + m[1] + ' भेजे)'; }],
+    [/^All (\d+) friends have been sent\. Increase the people number to send to more\.$/, function (m) { return 'सभी ' + m[1] + ' दोस्तों को भेज दिया। और को भेजना हो तो लोगों की संख्या बढ़ाएँ।'; }],
     [/^Wait right now: about (\d+) min$/, function (m) { return 'अभी करीब ' + m[1] + ' मिनट इंतज़ार'; }],
     [/^Happy hour \((\d+)% off\)$/, function (m) { return 'हैप्पी आवर (' + m[1] + '% छूट)'; }],
     [/^Happy hour −(\d+)%$/, function (m) { return 'हैप्पी आवर −' + m[1] + '%'; }],
@@ -1102,7 +1106,7 @@ window.FIREBASE_CONFIG = {
   if (!Array.isArray(dismissed)) dismissed = [];
   var type = 'pickup';
   var q = '', vegOnly = false, favOnly = false;
-  var avoid = load('cc-avoid', {}), queueDoc = null, splitN = {}, splitOpen = {};
+  var avoid = load('cc-avoid', {}), queueDoc = null, splitN = {}, splitOpen = {}, splitSent = {};
   if (!avoid || typeof avoid !== 'object' || Array.isArray(avoid)) avoid = {};
   var promoCode = '', promoErr = '';
   var order = null, booking = null, timers = [];
@@ -2139,6 +2143,10 @@ window.FIREBASE_CONFIG = {
         splitN[id] = Math.max(2, Math.min(10, (splitN[id] || 2) + (+btn.getAttribute('data-d') || 0)));
         rerenderSplit();
         var sb = document.querySelector('[data-action="splitn"][data-id="' + id + '"][data-d="' + btn.getAttribute('data-d') + '"]'); if (sb) sb.focus();
+      } else if (a === 'splitsent') {
+        splitSent[id] = (splitSent[id] || 0) + 1;
+        setTimeout(rerenderSplit, 400);
+        return;
       } else if (a === 'irate') {
         var ioid = btn.getAttribute('data-oid'), iid = btn.getAttribute('data-iid'), iv = +btn.getAttribute('data-v');
         var ird = rateDraft[ioid] || (rateDraft[ioid] = { stars: 0, text: '' });
