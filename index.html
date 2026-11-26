@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Corner Cup</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=DM+Sans:wght@400;500;600&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=DM+Sans:wght@400;500;600&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap">
+<script>try{var t=localStorage.getItem('cc-theme');document.documentElement.setAttribute('data-theme',t==='light'?'light':'dark')}catch(e){document.documentElement.setAttribute('data-theme','dark')}</script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -15,7 +16,7 @@
   <div class="wrap">
     <div class="topline">
       <p class="status" id="status"><span class="dot"></span><span id="status-text">Open until 11 pm</span></p>
-      <span class="slinks"><button type="button" class="linkbtn" id="lang-btn" data-action="lang">हिन्दी</button><a class="stafflink" id="stafflink" href="#staff" hidden>Staff screen</a></span>
+      <span class="slinks"><button type="button" class="linkbtn themebtn" id="theme-btn" data-action="theme" aria-label="Switch light or dark mode"></button><button type="button" class="linkbtn" id="lang-btn" data-action="lang">हिन्दी</button><a class="stafflink" id="stafflink" href="#staff" hidden>Staff screen</a></span>
     </div>
     <h1>Corner Cup</h1>
     <p class="sub">Coffee, chai and bites. Order from your phone, then collect at the counter or have it brought to your table.</p>
@@ -254,12 +255,14 @@
       <div class="topline">
         <p class="status"><span class="dot"></span>Staff screen</p>
         <span class="slinks">
+          <button type="button" class="linkbtn themebtn" id="theme-btn2" data-action="theme" aria-label="Switch light or dark mode"></button>
           <button type="button" class="linkbtn" id="s-sound" data-action="ssound" hidden>Sound: on</button>
           <button type="button" class="linkbtn" id="s-pass" data-action="spass" hidden>Change password</button>
           <button type="button" class="linkbtn" id="s-lock" data-action="slock" hidden>Lock</button>
           <a class="stafflink" id="homelink" href="./">Customer page</a>
         </span>
       </div>
+      <p class="greet" id="greet" hidden></p>
       <h1 class="sh">Corner Cup counter</h1>
     </div>
   </header>
@@ -1298,6 +1301,15 @@ window.FIREBASE_CONFIG = {
     });
   }
   var io = null;
+  function secIcon(n) {
+    n = String(n || '').toLowerCase();
+    if (/coffee|espresso|cafe|latte/.test(n)) return 'cup';
+    if (/chai|tea|drink|shake|juice|cold|beverage/.test(n)) return 'glass';
+    if (/dinner|lunch|meal|main|thali|rice|curry/.test(n)) return 'cloche';
+    if (/sweet|dessert|cake|bake|brownie/.test(n)) return 'cake';
+    if (/bite|snack|sandwich|burger|starter|fries/.test(n)) return 'bite';
+    return 'fork';
+  }
   function renderMenu() {
     var html = '', chipHtml = '', shown = 0;
     MENU.forEach(function (c, ci) {
@@ -1305,7 +1317,7 @@ window.FIREBASE_CONFIG = {
       if (!items.length) return;
       shown++;
       html += '<section class="cat" id="cat-' + ci + '" data-i="' + ci + '" aria-labelledby="h-' + ci + '"><h2 id="h-' + ci + '">' + esc(c.cat) + '</h2><ul>' + items.map(itemHTML).join('') + '</ul></section>';
-      chipHtml += '<button type="button" class="chip" data-action="goto" data-i="' + ci + '"' + (shown === 1 ? ' aria-current="true"' : '') + '>' + esc(c.cat) + '</button>';
+      chipHtml += '<button type="button" class="chip" data-ic="' + secIcon(c.cat) + '" data-action="goto" data-i="' + ci + '"' + (shown === 1 ? ' aria-current="true"' : '') + '>' + esc(c.cat) + '</button>';
     });
     if (!shown) {
       var msg = favOnly && !Object.keys(favs).length ? 'No favourites yet. Tap the heart on any item to save it here.' : 'Nothing matches. Try another word or clear the filters.';
@@ -2193,6 +2205,13 @@ window.FIREBASE_CONFIG = {
         splitN[id] = Math.max(2, Math.min(10, (splitN[id] || 2) + (+btn.getAttribute('data-d') || 0)));
         rerenderSplit();
         var sb = document.querySelector('[data-action="splitn"][data-id="' + id + '"][data-d="' + btn.getAttribute('data-d') + '"]'); if (sb) sb.focus();
+      } else if (a === 'theme') {
+        var tn = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', tn);
+        try { localStorage.setItem('cc-theme', tn); } catch (e7) {}
+      } else if (a === 'eye') {
+        var pw1 = $(btn.getAttribute('data-for'));
+        if (pw1) { var show = pw1.type === 'password'; pw1.type = show ? 'text' : 'password'; btn.setAttribute('aria-pressed', String(show)); btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password'); }
       } else if (a === 'upigo') {
         setTimeout(function () {
           if (document.hidden) return;
@@ -2610,7 +2629,7 @@ window.FIREBASE_CONFIG = {
     if (isStaff) openStaff(); else gateRender();
   }
   function gateField(id, label, auto) {
-    return '<div class="field"><label class="fl" for="' + id + '">' + label + '</label><input id="' + id + '" type="password" autocomplete="' + auto + '"></div>';
+    return '<div class="field"><label class="fl ico ic-lock" for="' + id + '">' + label + '</label><div class="inp"><span class="inp-ic ic-lock-i" aria-hidden="true"></span><input id="' + id + '" type="password" autocomplete="' + auto + '"><button type="button" class="eye" data-action="eye" data-for="' + id + '" aria-label="Show password" aria-pressed="false"></button></div></div>';
   }
   function gateRender() {
     var g = $('staff-gate'), open = staffAuth === 'open';
@@ -2619,6 +2638,12 @@ window.FIREBASE_CONFIG = {
     $('s-pass').hidden = true;
     $('s-sound').hidden = !open;
     $('s-sound').textContent = 'Sound: ' + (soundOn ? 'on' : 'off');
+    var gr = $('greet');
+    if (gr) {
+      var hr = new Date().getHours();
+      gr.textContent = (hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening') + (open ? ', ' + (isOwner ? 'Owner' : 'Team') + ' 👋' : '');
+      gr.hidden = false;
+    }
     if (open) { g.innerHTML = ''; renderStaff(true); return; }
     var h = '';
     if (staffAuth === 'checking') h = '<p class="snote" role="status">Checking...</p>';
@@ -2634,11 +2659,13 @@ window.FIREBASE_CONFIG = {
         fields = gateField('g-cur', 'Current password', 'current-password') + gateField('g-pw', 'New password', 'new-password') + gateField('g-pw2', 'Repeat new password', 'new-password'); btn = 'Save password';
       } else {
         title = 'Staff login'; intro = 'Sign in with your staff email and password.';
-        fields = '<div class="field"><label class="fl" for="g-email">Email</label><input id="g-email" type="email" autocomplete="username"></div>' + gateField('g-pw', 'Password', 'current-password'); btn = 'Sign in';
+        fields = '<div class="field"><label class="fl ico ic-mail" for="g-email">Email</label><div class="inp"><span class="inp-ic ic-mail-i" aria-hidden="true"></span><input id="g-email" type="email" autocomplete="username" placeholder="Enter your staff email"></div></div>' + gateField('g-pw', 'Password', 'current-password'); btn = 'Sign in';
       }
-      h = '<form class="gate" id="gate-form" novalidate><h2>' + title + '</h2><p class="fine">' + intro + '</p>' + fields +
-        '<p class="err" id="g-err" role="alert" hidden></p><button type="submit" class="place" id="g-btn">' + btn + '</button>' +
-        (staffAuth === 'change' ? '<button type="button" class="place alt" data-action="gcancel">Cancel</button>' : '') + '</form>';
+      h = '<div class="gate-hero"><span class="logo-ring" aria-hidden="true"></span><h2 class="gate-title">' + title + '</h2><p class="fine">' + intro + '</p></div>' +
+        '<form class="gate" id="gate-form" novalidate>' + fields +
+        '<p class="err" id="g-err" role="alert" hidden></p><button type="submit" class="place go" id="g-btn">' + btn + '</button>' +
+        (staffAuth === 'change' ? '<button type="button" class="place alt" data-action="gcancel">Cancel</button>' : '') + '</form>' +
+        (staffAuth === 'locked' ? '<div class="helpcard"><span class="hc-ic" aria-hidden="true"></span><div><strong>Need help?</strong><p>Cannot sign in? Ask the cafe owner to check your staff email and password.</p></div></div>' : '');
     }
     g.innerHTML = h;
     var first = g.querySelector('input');
@@ -3661,7 +3688,7 @@ window.FIREBASE_CONFIG = {
       return;
     }
     if (staffTab === 'orders') {
-      h += '<div class="t-btns"><button type="button" class="btn-line" data-action="dlorders">⬇ Download all orders (Excel / Google Sheets)</button></div>' +
+      h += '<button type="button" class="dlcard" data-action="dlorders"><span class="dl-ic" aria-hidden="true"></span><span class="dl-t"><strong>Download all orders</strong><small>Excel / Google Sheets</small></span><span class="dl-go" aria-hidden="true"></span></button>' +
         '<div class="sfilter"><button type="button" class="chip" data-action="sfilter" data-t="active" aria-pressed="' + (ordersFilter === 'active') + '">Active (' + active.length + ')</button>' +
         '<button type="button" class="chip" data-action="sfilter" data-t="done" aria-pressed="' + (ordersFilter === 'done') + '">Completed (' + done.length + ')</button></div>';
       var list = ordersFilter === 'active'
@@ -3669,7 +3696,7 @@ window.FIREBASE_CONFIG = {
         : done.sort(function (a, b) { return b.placedAt - a.placedAt; });
       h += list.length
         ? '<ul class="tickets">' + list.map(orderCard).join('') + '</ul>'
-        : '<p class="snote">' + (ordersFilter === 'active' ? 'No active orders. New ones appear here as customers place them.' : 'No completed orders yet.') + '</p>';
+        : '<div class="emptycard"><span class="empty-art" aria-hidden="true"></span><h3>' + (ordersFilter === 'active' ? 'No active orders' : 'No completed orders yet') + '</h3><p>' + (ordersFilter === 'active' ? 'New orders will appear here as customers place them.' : 'Finished orders will show up here.') + '</p></div>';
     } else if (staffTab === 'bookings') {
       h += '<div class="sfilter"><button type="button" class="chip" data-action="sfilter" data-t="pending" aria-pressed="' + (bookFilter === 'pending') + '">Needs reply (' + pending.length + ')</button>' +
         '<button type="button" class="chip" data-action="sfilter" data-t="all" aria-pressed="' + (bookFilter === 'all') + '">All (' + books.length + ')</button></div>';
