@@ -743,3 +743,9 @@ html::before { filter: saturate(1.25) brightness(1.18); transform: scale(1.12); 
 .grank em { font-style: normal; color: var(--muted); }
 .gresult { margin: 8px 0; padding: 14px; border-radius: 16px; text-align: center; background: var(--warn-bg); color: var(--ink); font-size: 18px; }
 .gerr { color: var(--danger); min-height: 1.2em; }
+/* keep small-caps only for labels */
+.sheet :is(button, a, p, small, summary, div, em, strong, output):not(.pcode span):not(.pcode strong):not(.token) { font-variant: normal; letter-spacing: normal; font-family: var(--font-body); }
+.sheet .place, .sheet .btn-line { font-family: var(--font-body); font-weight: 700; }
+.sheet .split-amt strong, .sheet .gresult strong, .sheet .grank, .sheet .pcode strong, .sheet .token, .sheet h2 { font-family: var(--font-display); }
+.sheet .grow input.gguess { font-family: var(--font-display); }
+.sheet summary, .sheet .more { font-weight: 600; }
