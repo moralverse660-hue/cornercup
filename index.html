@@ -2207,7 +2207,7 @@ window.FIREBASE_CONFIG = {
       } else if (a === 'reply') {
         staffWrite(btn.getAttribute('data-uid'), id, 'bookings', btn.getAttribute('data-n'));
       } else if (a === 'slock') {
-        firebase.auth().signOut().then(function () { location.reload(); });
+        lockNow();
       } else if (a === 'spass') {
         staffAuth = 'change';
         gateRender();
@@ -2326,7 +2326,7 @@ window.FIREBASE_CONFIG = {
         var hhSecs = Array.prototype.map.call(document.querySelectorAll('[data-hhsec]:checked'), function (e) { return e.getAttribute('data-hhsec'); }).join(',');
         if (hhOn && (!hhFrom || !hhUntil || hhFrom === hhUntil)) { setMsg = 'Happy hour: choose different From and Until times.'; renderStaff(true); return; }
         if (hhOn && (hhPct < 1 || hhPct > 90)) { setMsg = 'Happy hour discount must be between 1 and 90.'; renderStaff(true); return; }
-        menuWrite('settings', { upi: upi, payee: payee, google: gl, lateMin: lm, hhOn: hhOn ? '1' : '', hhFrom: hhFrom, hhUntil: hhUntil, hhPct: hhPct, hhSecs: hhSecs }).then(function () { setMsg = menuNote || 'Saved.'; renderStaff(true); });
+        menuWrite('settings', { lockMin: +($('st-lock') ? $('st-lock').value : 30) || 30, upi: upi, payee: payee, google: gl, lateMin: lm, hhOn: hhOn ? '1' : '', hhFrom: hhFrom, hhUntil: hhUntil, hhPct: hhPct, hhSecs: hhSecs }).then(function () { setMsg = menuNote || 'Saved.'; renderStaff(true); });
       } else if (a === 'autohi') {
         autoHindi(id);
       } else if (a === 'dlcust') {
@@ -2631,6 +2631,27 @@ window.FIREBASE_CONFIG = {
     });
   }
 
+  // Staff lock: a login only counts while this browser tab session lives, and it locks itself after a quiet time
+  function sessGet(k) { try { return sessionStorage.getItem(k); } catch (e) { return 'na'; } }
+  function sessSet(k, v) { try { if (v == null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, v); } catch (e) {} }
+  function lockMs() { var m = +setting('lockMin', 30); return (m === 15 || m === 60 ? m : 30) * 60000; }
+  var lastAct = Date.now();
+  function touchAct() { lastAct = Date.now(); }
+  function lockNow() {
+    sessSet('cc-staff-ok', null); sessSet('cc-staff-act', null);
+    try { firebase.auth().signOut().then(function () { location.reload(); }, function () { location.reload(); }); } catch (e) { location.reload(); }
+  }
+  function checkIdle() {
+    if (MODE !== 'staff' || staffAuth !== 'open' || kitchenBig) return;
+    var last = Math.max(lastAct, +sessGet('cc-staff-act') || 0);
+    if (Date.now() - last > lockMs()) { lockNow(); return; }
+    sessSet('cc-staff-act', String(lastAct));
+  }
+  if (MODE === 'staff') {
+    ['pointerdown', 'keydown', 'touchstart', 'scroll', 'input'].forEach(function (ev) { document.addEventListener(ev, touchAct, true); });
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) checkIdle(); });
+    setInterval(checkIdle, 20000);
+  }
   function startStaff() {
     if (staffSubs || !db) return;
     staffSubs = [];
@@ -2816,7 +2837,7 @@ window.FIREBASE_CONFIG = {
       '<small>' + c.orders + (c.orders === 1 ? ' order' : ' orders') + ' · ' + fmt(c.spent) + ' · ' + c.stamps + ' of ' + STAMPS_FULL + ' stamps' + (c.free ? ' · ' + c.free + ' free coffee used' : '') + '</small>' +
       '<small>' + esc(agoText(c)) + '</small></div><div class="c-act">' + act + '</div></li>';
   }
-  function csvCell(v) { v = String(v == null ? '' : v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+  function csvCell(v) { var isStr = typeof v === 'string'; v = String(v == null ? '' : v); if (isStr && /^[=+\-@\t\r]/.test(v) && !/^\+\d[\d ]*$/.test(v)) v = "'" + v; return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
   function downloadCsv(fileName, rows) {
     var text = '\ufeff' + rows.map(function (r) { return r.map(csvCell).join(','); }).join('\r\n');
     var url = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' })), a = document.createElement('a');
@@ -2943,7 +2964,9 @@ window.FIREBASE_CONFIG = {
       var em = ($('g-email') || {}).value || '';
       if (Date.now() < blockedUntil) { gateError('Too many tries. Wait a few seconds and try again.'); return; }
       if (!em.trim() || !pw) { gateError('Enter your email and password.'); return; }
+      sessSet('cc-staff-ok', '1'); sessSet('cc-staff-act', String(Date.now())); touchAct();
       firebase.auth().signInWithEmailAndPassword(em.trim(), pw).catch(function () {
+        sessSet('cc-staff-ok', null);
         tries++;
         if (tries >= 5) { blockedUntil = Date.now() + 30000; tries = 0; gateError('Too many tries. Wait 30 seconds and try again.'); }
         else gateError('Email or password is not right.');
@@ -3096,6 +3119,8 @@ window.FIREBASE_CONFIG = {
       '<p class="fine">After ordering, customers get a Pay with UPI button with the amount filled in. The money goes straight to your account. Check the payment in your own UPI app, then complete the order. Leave the UPI ID empty to hide the button.</p></div>' +
       '<div class="panel"><h3>Google reviews</h3><div class="field"><label class="fl" for="st-google">Your Google review link</label><input id="st-google" type="url" autocapitalize="off" value="' + esc(st.google || '') + '" placeholder="https://..."></div>' +
       '<p class="fine">Customers who give 4 or 5 stars see a button to rate you on Google too. Open your cafe in Google Maps, tap Share and copy the link here.</p></div>' +
+      '<div class="panel"><h3>Auto lock (अपने आप लॉक)</h3><div class="field"><label class="fl" for="st-lock">Lock the staff page when nobody uses it for</label><select id="st-lock">' + [15, 30, 60].map(function (m) { return opt(String(m), m === 60 ? '1 hour' : m + ' minutes', String(+st.lockMin === 15 || +st.lockMin === 60 ? +st.lockMin : 30)); }).join('') + '</select></div>' +
+      '<p class="fine">The page also asks for the password again after you close it or open it in a new tab. The kitchen Big screen never locks by itself. Press Lock to lock it right now.</p></div>' +
       '<div class="panel"><h3>Kitchen</h3><div class="field"><label class="fl" for="st-late">Mark an order late after (minutes)</label><input id="st-late" type="number" inputmode="numeric" min="3" max="120" value="' + esc(st.lateMin || 10) + '"></div></div>' +
       '<div class="panel"><h3>Happy hour</h3><label class="check"><input type="checkbox" id="st-hhon"' + (st.hhOn ? ' checked' : '') + '><span>Happy hour discount is on</span></label>' +
       '<div class="pair"><div class="field"><label class="fl" for="st-hhfrom">From</label><input id="st-hhfrom" type="time" value="' + esc(st.hhFrom || '15:00') + '"></div>' +
@@ -3653,8 +3678,14 @@ window.FIREBASE_CONFIG = {
     auth.onAuthStateChanged(function (u) {
       if (MODE === 'staff') {
         cfgAsked = true;
-        if (u && !u.isAnonymous) {
-          uid = u.uid; isStaff = true;
+        if (u && !u.isAnonymous && sessGet('cc-staff-ok') !== '1' && sessGet('cc-staff-ok') !== 'na') {
+          // A login from an earlier browser session: ask for the password again
+          isStaff = false; staffAuth = 'locked'; gateRender();
+          auth.signOut().then(function () {}, function () {});
+        } else if (u && !u.isAnonymous && Date.now() - (+sessGet('cc-staff-act') || Date.now()) > lockMs()) {
+          lockNow();
+        } else if (u && !u.isAnonymous) {
+          uid = u.uid; isStaff = true; touchAct();
           staffEmail = String(u.email || '').toLowerCase(); isOwner = OWNERS.indexOf(staffEmail) >= 0;
           if (!started) { started = true; watchStatus(); }
           openStaff();
