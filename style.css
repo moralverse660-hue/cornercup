@@ -471,3 +471,73 @@ img, svg, video { max-width: 100%; }
 .upirow { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; overflow-wrap: anywhere; }
 
 .t-warn { margin: 6px 0; padding: 8px 10px; border-radius: 8px; background: var(--warn-bg); color: var(--warn); font-weight: 600; font-size: 14px; }
+
+/* v14 glass look and smooth motion */
+:root {
+  --glass: rgba(255, 255, 255, 0.58);
+  --glass-strong: rgba(255, 255, 255, 0.78);
+  --glass-line: rgba(255, 255, 255, 0.65);
+  --glass-shadow: 0 8px 28px rgba(24, 48, 36, 0.12);
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --glass: rgba(30, 40, 36, 0.55);
+    --glass-strong: rgba(26, 34, 31, 0.8);
+    --glass-line: rgba(255, 255, 255, 0.09);
+    --glass-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  }
+}
+:root[data-theme="dark"] {
+  --glass: rgba(30, 40, 36, 0.55);
+  --glass-strong: rgba(26, 34, 31, 0.8);
+  --glass-line: rgba(255, 255, 255, 0.09);
+  --glass-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+}
+body {
+  background-image:
+    radial-gradient(70% 38% at 8% 0%, var(--accent-soft), transparent 70%),
+    radial-gradient(55% 32% at 100% 18%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 72%),
+    radial-gradient(60% 30% at 50% 100%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 75%);
+  background-attachment: fixed;
+}
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .rail, .tablebar, .banner, .waitchip, .stampcard, .welcome, .track, .upsell, .split, .paybox, .panel, .stat, .ticket, .alert, .rate, .readybanner {
+    background: var(--glass); border-color: var(--glass-line);
+    -webkit-backdrop-filter: blur(14px) saturate(160%); backdrop-filter: blur(14px) saturate(160%);
+  }
+  .tablebar, .stampcard, .welcome, .track, .upsell, .split, .panel, .stat, .ticket, .rate { box-shadow: var(--glass-shadow); }
+  .cartbar { background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .cartbar .bar { background: color-mix(in srgb, var(--accent) 90%, transparent); color: var(--accent-ink); border: 1px solid var(--glass-line); box-shadow: var(--glass-shadow); -webkit-backdrop-filter: blur(18px) saturate(170%); backdrop-filter: blur(18px) saturate(170%); }
+  .scrim { background: rgba(10, 20, 15, 0.32); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+  .sheet { background: var(--glass-strong); border: 1px solid var(--glass-line); box-shadow: 0 -12px 40px rgba(10, 30, 20, 0.2); -webkit-backdrop-filter: blur(22px) saturate(170%); backdrop-filter: blur(22px) saturate(170%); }
+  .item { background: var(--glass); border-color: var(--glass-line); border-radius: 16px; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+}
+.pcode { display: grid; gap: 4px; justify-items: center; margin: 12px 0; padding: 14px; border-radius: 16px; background: var(--accent-soft); border: 1px solid var(--glass-line); text-align: center; }
+.pcode span { font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.pcode strong { font-family: var(--font-display); font-size: 40px; letter-spacing: 0.18em; color: var(--accent); }
+.pcode small { color: var(--muted); }
+input[readonly] { opacity: 0.8; background: var(--accent-soft); }
+.seg label:has(input:disabled) { opacity: 0.45; }
+@media (prefers-reduced-motion: no-preference) {
+  .btn-fill, .btn-line, .chip, .linkbtn, .add, .step button, .close, .ghost, .place, .u-btn, .ithumb, .fav, .star, .tcell, .item, .mrow {
+    transition: transform 0.18s var(--ease), background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.25s ease, opacity 0.2s ease;
+  }
+  .btn-fill:active, .btn-line:active, .chip:active, .add:active, .step button:active, .place:active, .u-btn:active, .ithumb:active, .star:active, .close:active { transform: scale(0.95); }
+  @media (hover: hover) {
+    .item:hover { transform: translateY(-2px); box-shadow: var(--glass-shadow); }
+    .btn-fill:hover, .place:hover { transform: translateY(-1px); }
+  }
+  .scrim:not([hidden]) { animation: fadeIn 0.28s ease both; }
+  .scrim:not([hidden]) .sheet { animation: sheetUp 0.4s var(--ease) both; }
+  .cartbar:not([hidden]) .bar { animation: barUp 0.4s var(--ease) both; }
+  .banner:not([hidden]), .waitchip:not([hidden]), .tablebar:not([hidden]), .pcode, .upsell:not([hidden]), .split, .paybox { animation: rise 0.45s var(--ease) both; }
+  .stamp { transition: transform 0.3s var(--ease), background-color 0.3s ease; }
+  .readybanner:not([hidden]) { animation: dropIn 0.4s var(--ease) both; }
+  .steps li, .step-dot { transition: background-color 0.4s ease, color 0.4s ease, border-color 0.4s ease; }
+}
+@keyframes fadeIn { from { opacity: 0; } }
+@keyframes sheetUp { from { opacity: 0; transform: translateY(28px) scale(0.98); } }
+@keyframes barUp { from { opacity: 0; transform: translateY(24px); } }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+@keyframes dropIn { from { opacity: 0; transform: translateY(-16px); } }

@@ -581,6 +581,10 @@ window.FIREBASE_CONFIG = {
         : '<p class="fine">All ' + (n - 1) + ' friends have been sent. Increase the people number to send to more.</p>') +
       '<button type="button" class="btn-line" data-action="splittog" data-id="' + id + '">Close</button></div>';
   }
+  function pcodeHTML(o) {
+    if (!o || o.type !== 'pickup' || !o.pcode || stageFor(o) >= 3) return '';
+    return '<div class="pcode"><span>Pickup code</span><strong>' + esc(o.pcode) + '</strong><small>Show this code at the counter to collect your order.</small></div>';
+  }
   function rerenderSplit() { if (order) renderDone(); if (mineSel) renderMineReceipt(); }
   // Thumbs for each item after the order
   function itemRateRows(o, d) {
@@ -633,26 +637,50 @@ window.FIREBASE_CONFIG = {
     var m = /^#table-(\d{1,3})$/.exec(location.hash), n = m ? +m[1] : 0;
     return n >= 1 ? String(n) : '';
   }
+  var qrTable = '';
+  function syncType() {
+    var pf = $('pick-field'); if (pf) pf.hidden = type !== 'pickup';
+    $('table-field').hidden = type !== 'dinein';
+    var tl = $('table-lock'); if (tl) tl.hidden = !(tableNo && type === 'dinein');
+  }
+  // Table QR (#table-N): the table is fixed for this visit. The plain website link cannot choose a table, so dine-in is off there.
   function applyTable() {
     var t = readTable();
-    if (t) { tableNo = t; save('cc-table', { n: t, at: Date.now() }); }
-    else if (!tableNo) {
-      var s = load('cc-table', null);
-      if (s && s.n && Date.now() - s.at < 3 * 3600000) tableNo = String(s.n);
+    if (t && tableCfgSeen && +t > tableTotal) t = '';
+    if (t) { qrTable = t; sessSet('cc-qrtable', t); }
+    else if (!qrTable) { var q = sessGet('cc-qrtable'); if (q && q !== 'na' && /^\d{1,3}$/.test(q)) qrTable = q; }
+    tableNo = qrTable;
+    save('cc-table', null);
+    var dine = document.querySelector('input[name="type"][value="dinein"]'), pick = document.querySelector('input[name="type"][value="pickup"]');
+    if (!$('table-lock') && $('f-table')) {
+      var p = document.createElement('p'); p.className = 'hint'; p.id = 'table-lock'; p.hidden = true;
+      p.textContent = 'Your table number is fixed from the QR code.';
+      $('f-table').insertAdjacentElement('afterend', p);
+    }
+    if (!$('dine-note') && dine) {
+      var seg = dine.closest('.seg') || dine.parentNode, n = document.createElement('p');
+      n.className = 'hint'; n.id = 'dine-note'; n.hidden = true;
+      n.textContent = 'Dine-in orders: scan the QR code on your table.';
+      seg.insertAdjacentElement('afterend', n);
     }
     if (tableNo) {
       type = 'dinein';
-      var r = document.querySelector('input[name="type"][value="dinein"]');
-      if (r) r.checked = true;
-      $('table-field').hidden = false;
-      $('f-table').value = tableNo;
+      if (dine) { dine.disabled = false; dine.checked = true; }
+      $('f-table').value = tableNo; $('f-table').readOnly = true; $('f-table').setAttribute('aria-readonly', 'true');
+      if ($('dine-note')) $('dine-note').hidden = true;
+    } else {
+      if (dine) dine.disabled = true;
+      $('f-table').readOnly = false; $('f-table').removeAttribute('aria-readonly'); $('f-table').value = '';
+      if (type === 'dinein') { type = 'pickup'; if (pick) pick.checked = true; }
+      if ($('dine-note')) $('dine-note').hidden = false;
     }
+    syncType();
     renderTablebar();
   }
   var CALLS = [['water', 'Water'], ['plate', 'Extra plate'], ['spoon', 'Extra teaspoon'], ['bill', 'Bring the bill'], ['other', 'Other']];
   var callDraft = { sel: {}, text: '', table: '', err: '' };
   // Table lock: the first phone to order at a table holds it for 90 minutes (staff can free it)
-  var TABLE_HOLD = 90 * 60000, tableMap = {}, tableTotal = 10, tableMsg = '';
+  var TABLE_HOLD = 90 * 60000, tableMap = {}, tableTotal = 40, tableCfgSeen = false, tableMsg = '';
   function busyBy(n) { var d = tableMap[n]; return !!(d && d.uid !== uid && Date.now() - (d.at || 0) < TABLE_HOLD); }
   function tableBlocked() { return MODE === 'customer' && tableNo && type === 'dinein' && busyBy(tableNo); }
   function tableMapHTML(pickable) {
@@ -707,8 +735,8 @@ window.FIREBASE_CONFIG = {
     }
     el.hidden = false;
     if (tableBlocked()) {
-      el.innerHTML = '<div><strong>Table ' + esc(tableNo) + ' is busy</strong><p>Someone at this table is already ordering. Pick a free table below, or ask the team.</p></div>' +
-        tableMapHTML(true) + (tableMsg ? '<p class="err" role="alert">' + esc(tableMsg) + '</p>' : '') +
+      el.innerHTML = '<div><strong>Table ' + esc(tableNo) + ' is busy</strong><p>Someone at this table is already ordering. Ask the team for help.</p></div>' +
+        (tableMsg ? '<p class="err" role="alert">' + esc(tableMsg) + '</p>' : '') +
         '<div class="tb-row"><button type="button" class="btn-fill" data-action="callopen">🔔 Call staff</button></div>';
       return;
     }
@@ -722,7 +750,6 @@ window.FIREBASE_CONFIG = {
       h += '<div class="tb-row"><button type="button" class="btn-fill" data-action="callopen">🔔 Call staff</button></div>';
     }
     if (callNote) h += '<p class="fine" role="status">' + esc(callNote) + '</p>';
-    if (tableNo) h += '<div class="tb-row"><button type="button" class="linkbtn" data-action="notable">Not your table?</button></div>';
     el.innerHTML = h;
   }
   function ensureCallSheet() {
@@ -935,6 +962,11 @@ window.FIREBASE_CONFIG = {
   };
 
   Object.assign(HI, {
+    'Dine-in orders: scan the QR code on your table.': 'टेबल पर ऑर्डर के लिए अपने टेबल का QR कोड स्कैन करें।',
+    'Your table number is fixed from the QR code.': 'आपका टेबल नंबर QR कोड से तय है।',
+    'Scan the QR code on your table to order dine-in.': 'टेबल पर ऑर्डर के लिए अपने टेबल का QR कोड स्कैन करें।',
+    'Someone at this table is already ordering. Ask the team for help.': 'इस टेबल पर कोई पहले से ऑर्डर कर रहा है। टीम से मदद लें।',
+    'Pickup code': 'पिकअप कोड', 'Show this code at the counter to collect your order.': 'ऑर्डर लेते समय काउंटर पर यह कोड दिखाएँ।',
     'Or open one app:': 'या सीधे एक ऐप खोलें:', 'Button not opening? Pay with UPI ID or QR': 'बटन नहीं खुल रहा? UPI ID या QR से पैसे दें',
     'This page is open inside another app (Instagram, WhatsApp...). Open it in Chrome or Safari so UPI can start.': 'यह पेज किसी दूसरे ऐप (Instagram, WhatsApp...) के अंदर खुला है। UPI चलाने के लिए इसे Chrome या Safari में खोलें।',
     'Scan this QR with any UPI app on another phone.': 'किसी दूसरे फ़ोन के UPI ऐप से यह QR स्कैन करें।', 'UPI ID': 'UPI ID', 'Amount': 'रकम', 'Copy UPI ID': 'UPI ID कॉपी करें',
@@ -979,6 +1011,7 @@ window.FIREBASE_CONFIG = {
     [/^Our cafe has only (\d+) tables\. Enter a table number from 1 to (\d+)\.$/, function (m) { return 'हमारे कैफ़े में सिर्फ़ ' + m[1] + ' टेबल हैं। 1 से ' + m[2] + ' के बीच का टेबल नंबर लिखें।'; }],
     [/^Send to a friend on WhatsApp \((\d+) of (\d+) sent\)$/, function (m) { return 'WhatsApp पर एक दोस्त को भेजें (' + m[2] + ' में से ' + m[1] + ' भेजे)'; }],
     [/^All (\d+) friends have been sent\. Increase the people number to send to more\.$/, function (m) { return 'सभी ' + m[1] + ' दोस्तों को भेज दिया। और को भेजना हो तो लोगों की संख्या बढ़ाएँ।'; }],
+    [/^Table (\d+) is busy\. Please ask our team for help\.$/, function (m) { return 'टेबल ' + m[1] + ' व्यस्त है। कृपया हमारी टीम से मदद लें।'; }],
     [/^Wait right now: about (\d+) min$/, function (m) { return 'अभी करीब ' + m[1] + ' मिनट इंतज़ार'; }],
     [/^Happy hour \((\d+)% off\)$/, function (m) { return 'हैप्पी आवर (' + m[1] + '% छूट)'; }],
     [/^Happy hour −(\d+)%$/, function (m) { return 'हैप्पी आवर −' + m[1] + '%'; }],
@@ -1631,9 +1664,9 @@ window.FIREBASE_CONFIG = {
       var m = {};
       snap.docs.forEach(function (d) {
         var x = d.data() || {};
-        if (d.id === 'cfg') { if (+x.count >= 1) tableTotal = Math.min(40, +x.count); } else m[d.id] = x;
+        if (d.id === 'cfg') { if (+x.count >= 1) { tableTotal = Math.min(40, +x.count); tableCfgSeen = true; } } else m[d.id] = x;
       });
-      if (tableNo && +tableNo > tableTotal) { tableNo = ''; save('cc-table', null); $('f-table').value = ''; }
+      if (tableCfgSeen && qrTable && +qrTable > tableTotal) { qrTable = ''; sessSet('cc-qrtable', null); applyTable(); }
       tableMap = m;
       renderTablebar();
     }, function () {});
@@ -1854,6 +1887,7 @@ window.FIREBASE_CONFIG = {
     $('done-receipt').innerHTML = receiptHTML(order, order.stage);
     slot('done-pay', $('done-receipt')).innerHTML = order.shared ? payHTML(order) : '';
     slot('done-split', $('done-receipt')).innerHTML = splitHTML(order);
+    slot('done-pcode', $('done-receipt')).innerHTML = pcodeHTML(order);
     renderRate('done-rate', order, order.stage);
     $('done-stamp').textContent = order.stampMsg || '';
     $('done-stamp').hidden = !order.stampMsg;
@@ -1913,6 +1947,7 @@ window.FIREBASE_CONFIG = {
     $('mr-receipt').innerHTML = receiptHTML(o, s);
     slot('mr-pay', $('mr-receipt')).innerHTML = o.demo ? '' : payHTML(o);
     slot('mr-split', $('mr-receipt')).innerHTML = splitHTML(o);
+    slot('mr-pcode', $('mr-receipt')).innerHTML = pcodeHTML(o);
     renderRate('mr-rate', o, s);
   }
   function showMineList() {
@@ -2409,8 +2444,7 @@ window.FIREBASE_CONFIG = {
   Array.prototype.forEach.call(document.querySelectorAll('input[name="type"]'), function (r) {
     r.addEventListener('change', function () {
       type = r.value;
-      if ($('pick-field')) $('pick-field').hidden = type !== 'pickup';
-      $('table-field').hidden = type !== 'dinein';
+      syncType();
     });
   });
 
@@ -2432,11 +2466,12 @@ window.FIREBASE_CONFIG = {
     var t = totals();
     if (t.n === 0) return;
     var name = $('f-name').value.trim();
-    var table = $('f-table').value.trim();
+    var table = (type === 'dinein' && tableNo ? tableNo : $('f-table').value).trim();
     var phone = cleanPhone($('f-phone').value);
     var eName = name ? '' : 'Enter a name so we can call out your order.';
     var tnum = /^\d{1,3}$/.test(table) ? +table : 0;
-    var eTable = type === 'dinein' && !table ? 'Enter the table number printed on your table.'
+    var eTable = type === 'dinein' && !tableNo ? 'Scan the QR code on your table to order dine-in.'
+      : type === 'dinein' && !table ? 'Enter the table number printed on your table.'
       : (type === 'dinein' && (tnum < 1 || tnum > tableTotal) ? 'Our cafe has only ' + tableTotal + ' tables. Enter a table number from 1 to ' + tableTotal + '.' : '');
     if (type === 'dinein' && !eTable) table = String(tnum);
     var ePhone = validatePhone(phone);
@@ -2483,6 +2518,7 @@ window.FIREBASE_CONFIG = {
       note: $('f-note').value.trim(), eta: eta, placedAt: Date.now(), items: items, total: t.total, rec: rec
     };
     if (pickIn) { payload.pickIn = pickIn; payload.due = Date.now() + pickIn * 60000; }
+    if (type === 'pickup') payload.pcode = String(100 + Math.floor(Math.random() * 900));
 
     $('place').disabled = true;
     placeError('');
@@ -2499,7 +2535,7 @@ window.FIREBASE_CONFIG = {
       }
       if (r === 'busy') {
         $('place').disabled = false;
-        tableNo = String(table); tableMsg = 'Table ' + table + ' is busy. Pick a free table.';
+        tableNo = String(table); tableMsg = 'Table ' + table + ' is busy. Please ask our team for help.';
         closeSheet(); renderTablebar(); window.scrollTo(0, 0);
         return;
       }
@@ -3547,6 +3583,11 @@ window.FIREBASE_CONFIG = {
   }
   function discountLine(o) {
     var r = o.rec;
+    if (o.type === 'pickup' && o.pcode) return '<p class="t-note"><b>Pickup code: ' + esc(o.pcode) + '</b>. Check it when you hand over the order.</p>' + discountLine2(o);
+    return discountLine2(o);
+  }
+  function discountLine2(o) {
+    var r = o.rec;
     if (!r) return '';
     var p = [];
     if (+r.hh > 0) p.push('Happy hour −' + fmt(r.hh));
@@ -3565,7 +3606,7 @@ window.FIREBASE_CONFIG = {
     }).join('');
     return '<li class="ticket' + (st === 0 ? ' new' : '') + (late ? ' late' : '') + '">' +
       '<div class="t-head"><span class="t-token">' + esc(o.token) + '</span><span class="pill ' + (rej ? 'bad' : 's' + st) + '">' + (rej ? 'Rejected' : STAGE_NAMES[st] + (by ? ' · ' + esc(by) : '')) + '</span></div>' +
-      '<p class="t-meta">' + esc(o.name) + (o.phone ? ' · ' + esc(isOwner ? showPhone(o.phone) : maskPhone(o.phone)) : '') + ' · ' + (o.type === 'dinein' ? 'Table ' + esc(o.table) : 'Pickup') + ' · ' + clock(o.placedAt) + (o.due ? ' · COLLECT AT ' + clock(o.due) : '') + (st < 3 ? ' (' + mins + ' min ago)' + (late ? ' <b class="late-tag">LATE</b>' : '') : '') + '</p>' +
+      '<p class="t-meta">' + esc(o.name) + (o.phone ? ' · ' + esc(isOwner ? showPhone(o.phone) : maskPhone(o.phone)) : '') + ' · ' + (o.type === 'dinein' ? 'Table ' + esc(o.table) : 'Pickup') + ' · ' + clock(o.placedAt) + (o.due ? ' · COLLECT AT ' + clock(o.due) : '') + (o.type === 'pickup' && o.pcode ? ' · CODE ' + esc(o.pcode) : '') + (st < 3 ? ' (' + mins + ' min ago)' + (late ? ' <b class="late-tag">LATE</b>' : '') : '') + '</p>' +
       '<ul class="t-rows">' + items + '</ul>' +
       (o.note ? '<p class="t-note">Note: ' + esc(o.note) + '</p>' : '') + discountLine(o) +
       (orderCheck(o).length ? '<p class="t-warn" role="alert">⚠ Check this order before taking money: ' + orderCheck(o).map(esc).join('; ') + '.</p>' : '') +
