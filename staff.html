@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Corner Cup Staff</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=DM+Sans:wght@400;500;600&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap">
-<script>try{var t=localStorage.getItem('cc-theme');document.documentElement.setAttribute('data-theme',t==='light'?'light':'dark')}catch(e){document.documentElement.setAttribute('data-theme','dark')}</script>
-<link rel="stylesheet" href="style.css?v=23">
+<script>try{var t=localStorage.getItem('cc-theme');document.documentElement.setAttribute('data-theme',t==='light'||(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark')}catch(e){document.documentElement.setAttribute('data-theme','dark')}</script>
+<link rel="stylesheet" href="style.css?v=26">
 </head>
 <body>
 
@@ -578,7 +578,7 @@ window.FIREBASE_CONFIG = {
     return '<div class="split"><p class="u-title">Split the bill</p>' +
       '<div class="split-row"><span>People</span><div class="step"><button type="button" data-action="splitn" data-id="' + id + '" data-d="-1" aria-label="One person less">−</button><output aria-live="polite">' + n + '</output><button type="button" data-action="splitn" data-id="' + id + '" data-d="1" aria-label="One more person">+</button></div></div>' +
       '<p class="split-amt"><span>Each pays</span> <strong>' + fmt(per) + '</strong></p>' +
-      (pay ? '<a class="place paylink" href="' + esc(pay) + '">Pay my share ' + fmt(per) + '</a>' : '') +
+      (pay ? (payOpen(o) ? '<a class="place paylink" href="' + esc(pay) + '">Pay my share ' + fmt(per) + '</a>' : payLockHTML()) : '') +
       (sent < n - 1
         ? '<a class="btn-line" target="_blank" rel="noopener" data-action="splitsent" data-id="' + id + '" href="https://wa.me/?text=' + encodeURIComponent(msg) + '">Send to a friend on WhatsApp (' + sent + ' of ' + (n - 1) + ' sent)</a>'
         : '<p class="fine">All ' + (n - 1) + ' friends have been sent. Increase the people number to send to more.</p>') +
@@ -605,7 +605,7 @@ window.FIREBASE_CONFIG = {
       if (tie) h += '<p class="fine">Tie for the farthest guess, so nobody loses yet. Play again!</p>';
       else {
         var pay = upiLink(o, +o.total);
-        h += '<p class="gresult"><strong>' + esc(worst.name) + '</strong> pays the whole bill: ' + fmt(o.total) + '</p>' + (pay ? '<a class="place paylink" href="' + esc(pay) + '">Pay ' + fmt(o.total) + '</a>' : '');
+        h += '<p class="gresult"><strong>' + esc(worst.name) + '</strong> pays the whole bill: ' + fmt(o.total) + '</p>' + (pay ? (payOpen(o) ? '<a class="place paylink" href="' + esc(pay) + '">Pay ' + fmt(o.total) + '</a>' : payLockHTML()) : '');
       }
       return h + '<button type="button" class="btn-line" data-action="gameagain" data-id="' + id + '">Play again</button><button type="button" class="btn-line" data-action="gameclose" data-id="' + id + '">Close</button></div>';
     }
@@ -851,7 +851,7 @@ window.FIREBASE_CONFIG = {
     if (!el) return;
     var ae = document.activeElement;
     if (ae && ae.tagName === 'TEXTAREA' && el.contains(ae)) return;
-    if (!o || stage < 2) { el.innerHTML = ''; return; }
+    if (!o || stage < 2 || isCancelled(o)) { el.innerHTML = ''; return; }
     var r = ratings[o.id];
     if (r) {
       el.innerHTML = '<div class="rate"><p class="r-title">Thanks for your feedback!</p><div class="stars-done" role="img" aria-label="' + r.stars + ' out of 5">' + starsText(r.stars) + '</div>' +
@@ -1558,6 +1558,10 @@ window.FIREBASE_CONFIG = {
     return s || 'pending';
   }
   function isLive(o) { return stageFor(o) < 3; }
+  function payOpen(o) { return stageFor(o) >= 1 && !isCancelled(o); }
+  function payLockHTML() { return '<div class="paylock"><strong>🔒 Payment opens soon</strong><span>You can pay once the cafe starts preparing your order. If the cafe cannot take it, you never paid, so no refund is needed. You can also pay at the counter.</span></div>'; }
+  function isCancelled(o) { return !!(o && myStatus.stages && myStatus.stages[o.id] === 4); }
+  function cancelWhy(o) { var w = myStatus.why && myStatus.why[o.id]; return w ? String(w) : ''; }
   function stageName(o, s) { if (myStatus.stages && myStatus.stages[o.id] === 4) return 'Cancelled by the cafe'; return s === 2 ? (o.type === 'dinein' ? 'At your table' : 'Ready to collect') : STAGE_NAMES[s]; }
 
   function upiLink(o, amt) {
@@ -1569,7 +1573,8 @@ window.FIREBASE_CONFIG = {
   var payAlt = false;
   function payHTML(o) {
     var l = upiLink(o);
-    if (!l || stageFor(o) >= 3) return '';
+    if (!l || stageFor(o) >= 3 || isCancelled(o)) return '';
+    if (!payOpen(o)) return payLockHTML();
     var qs = l.slice(l.indexOf('?') + 1), ua = navigator.userAgent || '', u = String(setting('upi', '')).trim();
     var main = /Android/i.test(ua) ? 'intent://pay?' + qs + '#Intent;scheme=upi;end' : l;
     var inapp = /Instagram|FBAN|FBAV|FB_IAB|WhatsApp|Snapchat|Line\/|Telegram/i.test(ua);
@@ -1786,6 +1791,7 @@ window.FIREBASE_CONFIG = {
 
   // Receipt
   function stepsHTML(o, stage) {
+    if (isCancelled(o)) return '<li class="cancelled">✕ Cancelled by the cafe</li>';
     var labels = ['Received', 'Preparing', o.type === 'dinein' ? 'At your table' : 'Ready to collect'];
     return labels.map(function (l, i) {
       var cls = (i < stage || stage >= 2) ? 'done' : (i === stage ? 'now' : '');
@@ -1922,12 +1928,13 @@ window.FIREBASE_CONFIG = {
   function renderDone() {
     if (!order) return;
     $('done-token').textContent = order.token;
-    $('done-eta').textContent = order.stage < 2 ? (order.due ? 'Collect around ' + clock(order.due) : 'Ready in about ' + order.eta + ' min') : stageName(order, 2);
+    $('done-eta').textContent = isCancelled(order) ? 'Cancelled by the cafe' : order.stage < 2 ? (order.due ? 'Collect around ' + clock(order.due) : 'Ready in about ' + order.eta + ' min') : stageName(order, 2);
     $('done-meta').textContent = (order.type === 'dinein' ? 'Table ' + order.table : 'Pickup for ' + order.name) + ' · ' + PAY.counter;
     $('done-steps').innerHTML = stepsHTML(order, order.stage);
     $('done-live').textContent = 'Order status: ' + stageName(order, order.stage);
     $('done-receipt').innerHTML = receiptHTML(order, order.stage);
     slot('done-pay', $('done-receipt')).innerHTML = order.shared ? payHTML(order) : '';
+    slot('done-cancel', $('done-receipt')).innerHTML = isCancelled(order) ? '<div class="cancelbox"><span>This order was cancelled by the cafe.</span>' + (cancelWhy(order) ? '<small>Reason: ' + esc(cancelWhy(order)) + '</small>' : '<small>Please ask the staff at the counter if you have questions.</small>') + '</div>' : '';
     slot('done-split', $('done-receipt')).innerHTML = splitHTML(order);
     slot('done-pcode', $('done-receipt')).innerHTML = pcodeHTML(order);
     renderRate('done-rate', order, order.stage);
@@ -1960,7 +1967,7 @@ window.FIREBASE_CONFIG = {
     var sum = lines.map(function (l) { return l.q + ' × ' + l.name; }).join(', ') || 'Order';
     return '<button type="button" class="mrow' + (live ? ' live' : '') + '" data-action="receipt" data-id="' + esc(o.id) + '">' +
       '<span class="mi"><strong>' + esc(o.token) + '</strong><small>' + esc(stamp(o.placedAt) + ' · ' + sum) + '</small></span>' +
-      '<span class="mr"><span class="pill s' + s + '">' + esc(stageName(o, s)) + '</span><span>' + fmt(o.total) + '</span></span></button>';
+      '<span class="mr"><span class="pill ' + (isCancelled(o) ? 'bad' : 's' + s) + '">' + esc(stageName(o, s)) + '</span><span>' + fmt(o.total) + '</span></span></button>';
   }
   function bookRow(b) {
     var st = bkStateOf(b);
@@ -2149,6 +2156,7 @@ window.FIREBASE_CONFIG = {
     if (btn) {
       var a = btn.getAttribute('data-action'), key = btn.getAttribute('data-key'), id = btn.getAttribute('data-id');
       if (a === 'inc' || a === 'dec') {
+        try { if (navigator.vibrate) navigator.vibrate(8); } catch (e8) {}
         var scope = btn.closest('#lines') || $('menu');
         if (a === 'inc' && !cart[key] && byId[key] && !byId[key].custom) addLine(key, {});
         else changeKey(key, a === 'inc' ? 1 : -1);
@@ -2351,9 +2359,13 @@ window.FIREBASE_CONFIG = {
         var ro = staffData.orders.filter(function (x) { return x.id === id; })[0];
         if (rejConfirm !== id) { rejConfirm = id; renderStaff(true); return; }
         rejConfirm = '';
+        var why = btn.getAttribute('data-why') || '';
+        if (why && db) { var wp = { why: {} }; wp.why[id] = why; db.doc('status/' + btn.getAttribute('data-uid')).set(wp, { merge: true }).then(function () {}, function () {}); }
         staffWrite(btn.getAttribute('data-uid'), id, 'stages', 4);
         var tt = ro && ro.type === 'dinein' && staffData.tables[ro.table];
         if (tt && tt.uid === ro.uid && db) db.doc('tables/' + ro.table).delete().then(function () {}, function () {});
+      } else if (a === 'rejback') {
+        rejConfirm = ''; renderStaff(true);
       } else if (a === 'tfree') {
         if (db) db.doc('tables/' + id).delete().then(function () {}, function () { staffErr = 'error'; renderStaff(true); });
       } else if (a === 'readyok') {
@@ -3223,6 +3235,13 @@ window.FIREBASE_CONFIG = {
     if (codesOn()) for (var n = 1; n <= tableCount; n++) if (!staffData.codes[n] && !rotated['new' + n]) { rotated['new' + n] = 1; db.doc('tablecodes/' + n).set({ code: newCode('') }).then(function () {}, function () {}); }
   }
   var setMsg = '';
+  function blockedPanel() {
+    var ks = Object.keys(staffData.blocked || {});
+    return '<div class="panel"><h3>Blocked numbers (' + ks.length + ')</h3>' + (ks.length ? ks.map(function (ph) {
+      var b = staffData.blocked[ph] || {};
+      return '<div class="blk-row"><span>' + esc(b.name || 'Customer') + '<br><small>' + esc(showPhone(ph)) + '</small></span>' + blockButton(ph, b.name, true) + '</div>';
+    }).join('') : '<p class="fine">No blocked numbers. You can block a number from a rejected order.</p>') + '</div>';
+  }
   function settingsTab() {
     var st = (menuCfg && menuCfg.settings) || {};
     return '<p class="fine">These settings are used on the customer page.</p>' + (setMsg ? '<p class="snote" role="status">' + esc(setMsg) + '</p>' : '') +
@@ -3687,7 +3706,9 @@ window.FIREBASE_CONFIG = {
       (o.note ? '<p class="t-note">Note: ' + esc(o.note) + '</p>' : '') + discountLine(o) +
       (orderCheck(o).length ? '<p class="t-warn" role="alert">⚠ Check this order before taking money: ' + orderCheck(o).map(esc).join('; ') + '.</p>' : '') +
       '<div class="t-foot"><strong>' + fmt(o.total) + ' · ' + (rej ? 'Not served' : st >= 3 ? 'Paid' : 'To collect') + '</strong>' +
-      (st < 3 ? '<button type="button" class="btn-line" data-action="reject" data-uid="' + esc(o.uid) + '" data-id="' + esc(o.id) + '"' + (staffBusy ? ' disabled' : '') + '>' + (rejConfirm === o.id ? 'Tap again to reject' : 'Reject') + '</button>' : '') +
+      (st < 3 ? (rejConfirm === o.id
+        ? '<div class="whyrow" role="group" aria-label="Reason for rejecting">' + ['Out of stock', 'Too busy', 'Closing soon', 'No reason'].map(function (w) { return '<button type="button" class="btn-line" data-action="reject" data-why="' + (w === 'No reason' ? '' : esc(w)) + '" data-uid="' + esc(o.uid) + '" data-id="' + esc(o.id) + '"' + (staffBusy ? ' disabled' : '') + '>' + w + '</button>'; }).join('') + '<button type="button" class="btn-line" data-action="rejback">Back</button></div>'
+        : '<button type="button" class="btn-line" data-action="reject" data-uid="' + esc(o.uid) + '" data-id="' + esc(o.id) + '"' + (staffBusy ? ' disabled' : '') + '>Reject</button>') : '') +
       (rej && o.phone ? (isBlocked(o.phone) ? '<span class="pill s3">Number blocked</span>' : blockButton(o.phone, o.name, false)) : '') +
       (next && !rej ? '<button type="button" class="btn-fill" data-action="advance" data-uid="' + esc(o.uid) + '" data-id="' + esc(o.id) + '" data-n="' + next[1] + '"' + (staffBusy ? ' disabled' : '') + '>' + next[0] + '</button>' : '') +
       '</div></li>';
@@ -3707,6 +3728,12 @@ window.FIREBASE_CONFIG = {
       '</div></li>';
   }
   function renderStaff(force) {
+    var el0 = $('staff-body'), tb = el0 && el0.querySelector('.stabs'), sl = tb ? tb.scrollLeft : 0, sy = window.pageYOffset;
+    renderStaffInner(force);
+    var tb2 = el0 && el0.querySelector('.stabs'); if (tb2 && sl) { tb2.style.scrollBehavior = 'auto'; tb2.scrollLeft = sl; tb2.style.scrollBehavior = ''; }
+    if (Math.abs(window.pageYOffset - sy) > 2) window.scrollTo(0, sy);
+  }
+  function renderStaffInner(force) {
     var el = $('staff-body');
     if (!isStaff || staffAuth !== 'open' || $('staff').hidden) return;
     var ae = document.activeElement;
@@ -3728,7 +3755,7 @@ window.FIREBASE_CONFIG = {
     if (staffNote) h += '<p class="snote" role="status">' + esc(staffNote) + '</p>';
     if (staffErr) h += '<p class="snote" role="status">Something went wrong talking to the store (' + esc(staffErr) + '). Check your connection and try again.</p>';
     if (staffTab === 'qr') { el.innerHTML = h + qrTab(); return; }
-    if (staffTab === 'settings') { el.innerHTML = h + settingsTab(); return; }
+    if (staffTab === 'settings') { el.innerHTML = h + settingsTab() + blockedPanel(); return; }
     if (staffTab === 'menu') { el.innerHTML = h + menuTab(); return; }
     if (staffTab === 'tables') { el.innerHTML = h + tablesTab(); return; }
     if (!ready && !staffErr) {
@@ -3737,6 +3764,8 @@ window.FIREBASE_CONFIG = {
       return;
     }
     if (staffTab === 'orders') {
+      var t0 = new Date().setHours(0, 0, 0, 0), td = orders.filter(function (o) { return o.placedAt >= t0; }), tdOk = td.filter(function (o) { return staffStage(o) < 4; }), tdPaid = td.filter(function (o) { return staffStage(o) === 3; });
+      h += '<div class="sumstrip" aria-label="Today"><div><b>' + tdOk.length + '</b><span>Orders today</span></div><div><b>' + fmt(tdPaid.reduce(function (a, o) { return a + (+o.total || 0); }, 0)) + '</b><span>Collected</span></div><div><b>' + (td.length - tdOk.length) + '</b><span>Rejected</span></div></div>';
       h += '<button type="button" class="dlcard" data-action="dlorders"><span class="dl-ic" aria-hidden="true"></span><span class="dl-t"><strong>Download all orders</strong><small>Excel / Google Sheets</small></span><span class="dl-go" aria-hidden="true"></span></button>' +
         '<div class="sfilter"><button type="button" class="chip" data-action="sfilter" data-t="active" aria-pressed="' + (ordersFilter === 'active') + '">Active (' + active.length + ')</button>' +
         '<button type="button" class="chip" data-action="sfilter" data-t="done" aria-pressed="' + (ordersFilter === 'done') + '">Completed (' + done.length + ')</button></div>';
@@ -3780,6 +3809,7 @@ window.FIREBASE_CONFIG = {
     window.scrollTo(0, 0);
   }
   window.addEventListener('hashchange', route);
+  setTimeout(function () { document.documentElement.classList.add('booted'); }, 1800);
 
   prefill();
   renderStamps();
