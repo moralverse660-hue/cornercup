@@ -446,3 +446,19 @@ img, svg, video { max-width: 100%; }
 .ithumb[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
 .allg-set { border: 0; padding: 0; margin: 4px 0; min-width: 0; }
 .allg-row { display: flex; flex-wrap: wrap; gap: 12px; }
+
+/* v12 menu manager */
+.ef-title { font-family: var(--font-display); font-weight: 700; font-size: 18px; }
+.more, .more2 { min-width: 0; }
+.more > summary, .more2 > summary { cursor: pointer; list-style: none; }
+.more > summary { padding: 12px 14px; border: 1px dashed var(--accent); border-radius: 10px; font-weight: 600; color: var(--accent); }
+.more > summary::-webkit-details-marker, .more2 > summary::-webkit-details-marker { display: none; }
+.more-body { display: grid; gap: 12px; margin-top: 12px; }
+.more2 { flex: 1 1 100%; }
+.more2 > summary { display: inline-flex; align-items: center; justify-content: center; padding: 0 14px; }
+.more2[open] > summary { margin-bottom: 8px; }
+.hibox { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
+.ef-btns .btn-fill { flex: 2 1 55%; }
+.btn-line.danger { color: var(--danger); border-color: var(--danger); }
+.bigadd .btn-fill, .bigadd .btn-line { flex: 1 1 45%; }
+.menuhelp ul { list-style: none; padding: 0; display: grid; gap: 6px; }

@@ -2306,7 +2306,7 @@ window.FIREBASE_CONFIG = {
       } else if (a === 'dlorders') {
         exportOrders();
       } else if (a === 'medit') {
-        menuEdit = id; secEdit = ''; menuDraft = {}; menuNote = ''; menuConfirm = ''; renderStaff(true);
+        menuEdit = id; secEdit = ''; menuDraft = {}; menuNote = ''; menuConfirm = ''; menuMore = false; renderStaff(true);
       } else if (a === 'mnew') {
         menuEdit = '+new'; secEdit = ''; menuDraft = { for: '+new', sec: id || '' }; menuNote = ''; renderStaff(true);
         var mn = $('mi-name'); if (mn) mn.focus();
@@ -2526,7 +2526,7 @@ window.FIREBASE_CONFIG = {
   if (!sentMap || typeof sentMap !== 'object') sentMap = {};
   var msgOffer = '', msgText = String(load('cc-msg', '') || '');
   var qrLink = String(load('cc-link', '') || '') || DEFAULT_LINK, qrNote = '';
-  var delArm = '', offerNote = '';
+  var delArm = '', offerNote = '', menuMore = false;
 
   function hex(buf) {
     return Array.prototype.map.call(new Uint8Array(buf), function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
@@ -3171,55 +3171,68 @@ window.FIREBASE_CONFIG = {
   var menuEdit = '', secEdit = '', menuDraft = {}, menuConfirm = '';
   function opt(v, label, cur) { return '<option value="' + esc(v) + '"' + (v === cur ? ' selected' : '') + '>' + esc(label) + '</option>'; }
   function itemForm(it, isNew, secId) {
-    var d = menuDraft.for === (isNew ? '+new' : it.id) ? menuDraft : {};
+    var forKey = isNew ? '+new' : it.id;
+    var d = menuDraft.for === forKey ? menuDraft : {};
     function v(k, def) { return d[k] != null ? d[k] : def; }
     var bd = isNew ? '' : badgeOf(it.id);
     var secOpts = MENU.map(function (c) { return opt(c.id, c.cat, v('sec', isNew ? secId : it.sec)); }).join('');
     var offerNow = isNew ? '' : (it.listPrice > it.price ? it.price : '');
-    var h = '<li class="crow editform"><div class="field"><label class="fl" for="mi-name">Item name</label><input id="mi-name" type="text" value="' + esc(v('name', isNew ? '' : it.name)) + '" placeholder="e.g. Dal Makhani"></div>' +
-      '<div class="field"><label class="fl" for="mi-desc">Description</label><input id="mi-desc" type="text" value="' + esc(v('desc', isNew ? '' : it.desc)) + '" placeholder="Short line about the dish"></div>' +
-      '<div class="pair"><div class="field"><label class="fl" for="mi-price">Price (₹)</label><input id="mi-price" type="number" inputmode="numeric" min="1" value="' + esc(v('price', isNew ? '' : it.listPrice)) + '"></div>' +
-      '<div class="field"><label class="fl" for="mi-offer">Offer price (₹, optional)</label><input id="mi-offer" type="number" inputmode="numeric" min="0" value="' + esc(v('offer', offerNow)) + '" placeholder="Cheaper price"></div></div>' +
-      '<div class="pair"><div class="field"><label class="fl" for="mi-veg">Type</label><select id="mi-veg">' + opt('1', 'Veg', v('veg', (isNew || it.veg) ? '1' : '0')) + opt('0', 'Non-veg', v('veg', (isNew || it.veg) ? '1' : '0')) + '</select></div>' +
-      '<div class="field"><label class="fl" for="mi-sec">Section</label><select id="mi-sec">' + secOpts + '</select></div></div>' +
-      '<div class="pair"><div class="field"><label class="fl" for="mi-badge">Badge</label><select id="mi-badge">' + opt('', 'No badge', v('badge', bd)) + opt('bestseller', 'Bestseller', v('badge', bd)) + opt('chef', "Chef's pick", v('badge', bd)) + opt('new', 'New', v('badge', bd)) + opt('spicy', 'Spicy', v('badge', bd)) + opt('vegan', 'Vegan', v('badge', bd)) + '</select></div>' +
-      '<div class="field"><label class="fl" for="mi-tag">Own tag (optional)</label><input id="mi-tag" type="text" maxlength="20" value="' + esc(v('tag', isNew ? '' : it.tag)) + '" placeholder="e.g. Spicy"></div></div>';
     var al = v('allg', isNew ? [] : it.allergens);
-    h += '<fieldset class="allg-set"><legend class="fl">Contains (customers can filter by this)</legend><div class="allg-row">' + Object.keys(ALLERGENS).map(function (k) {
-      return '<label class="check"><input type="checkbox" data-allg="' + k + '"' + (al.indexOf(k) >= 0 ? ' checked' : '') + '><span>' + ALLERGENS[k] + '</span></label>';
-    }).join('') + '</div></fieldset>';
     var cf0 = isNew ? {} : cfgOf(it.id);
-    h += '<p class="fine">Hindi for customers (optional). Leave empty to show English.</p>' +
+    var h = '<li class="crow editform" data-for="' + esc(forKey) + '"><p class="ef-title">' + (isNew ? 'New item (नया आइटम)' : 'Edit: ' + esc(it.name)) + '</p>' +
+      '<div class="field"><label class="fl" for="mi-name">Item name (आइटम का नाम)</label><input id="mi-name" type="text" value="' + esc(v('name', isNew ? '' : it.name)) + '" placeholder="e.g. Dal Makhani"></div>' +
+      '<div class="pair"><div class="field"><label class="fl" for="mi-price">Price in ₹ (कीमत)</label><input id="mi-price" type="number" inputmode="numeric" min="1" value="' + esc(v('price', isNew ? '' : it.listPrice)) + '"></div>' +
+      '<div class="field"><label class="fl" for="mi-veg">Veg or non-veg</label><select id="mi-veg">' + opt('1', 'Veg (शाकाहारी)', v('veg', (isNew || it.veg) ? '1' : '0')) + opt('0', 'Non-veg (मांसाहारी)', v('veg', (isNew || it.veg) ? '1' : '0')) + '</select></div></div>' +
+      '<div class="field"><label class="fl" for="mi-sec">Which section? (किस सेक्शन में)</label><select id="mi-sec">' + secOpts + '</select></div>' +
+      '<details id="mi-more" class="more"' + (menuMore ? ' open' : '') + '><summary>More options (और विकल्प): description, offer price, photo, tags, Hindi, allergy</summary><div class="more-body">' +
+      '<div class="field"><label class="fl" for="mi-desc">Short description (छोटा विवरण)</label><input id="mi-desc" type="text" value="' + esc(v('desc', isNew ? '' : it.desc)) + '" placeholder="Short line about the dish"></div>' +
+      '<div class="field"><label class="fl" for="mi-offer">Offer price in ₹ (optional, सस्ता दाम)</label><input id="mi-offer" type="number" inputmode="numeric" min="0" value="' + esc(v('offer', offerNow)) + '" placeholder="Leave empty for no offer"></div>' +
+      '<div class="pair"><div class="field"><label class="fl" for="mi-badge">Badge</label><select id="mi-badge">' + opt('', 'No badge', v('badge', bd)) + opt('bestseller', 'Bestseller', v('badge', bd)) + opt('chef', "Chef's pick", v('badge', bd)) + opt('new', 'New', v('badge', bd)) + opt('spicy', 'Spicy', v('badge', bd)) + opt('vegan', 'Vegan', v('badge', bd)) + '</select></div>' +
+      '<div class="field"><label class="fl" for="mi-tag">Own tag (optional)</label><input id="mi-tag" type="text" maxlength="20" value="' + esc(v('tag', isNew ? '' : it.tag)) + '" placeholder="e.g. Spicy"></div></div>' +
+      '<fieldset class="allg-set"><legend class="fl">Contains (customers can filter by this)</legend><div class="allg-row">' + Object.keys(ALLERGENS).map(function (k) {
+        return '<label class="check"><input type="checkbox" data-allg="' + k + '"' + (al.indexOf(k) >= 0 ? ' checked' : '') + '><span>' + ALLERGENS[k] + '</span></label>';
+      }).join('') + '</div></fieldset>' +
+      '<div class="hibox"><p class="fl">Hindi for customers (optional)</p><p class="fine">Type the English above first, then tap Auto Hindi. Your English stays. Check the Hindi and fix it if needed.</p>' +
       '<div class="field"><label class="fl" for="mi-nameHi">Name in Hindi</label><input id="mi-nameHi" type="text" value="' + esc(v('nameHi', cf0.nameHi || '')) + '" placeholder="जैसे: दाल मखनी"></div>' +
       '<div class="field"><label class="fl" for="mi-descHi">Description in Hindi</label><input id="mi-descHi" type="text" value="' + esc(v('descHi', cf0.descHi || '')) + '"></div>' +
       '<div class="field"><label class="fl" for="mi-tagHi">Own tag in Hindi</label><input id="mi-tagHi" type="text" value="' + esc(v('tagHi', cf0.tagHi || '')) + '"></div>' +
-      '<div class="tb-row"><button type="button" class="btn-line" data-action="autohi" data-id="item">Auto Hindi</button><span class="fine" id="hi-st" role="status"></span></div>';
+      '<div class="tb-row"><button type="button" class="btn-line" data-action="autohi" data-id="item">Auto Hindi</button><span class="fine" id="hi-st" role="status"></span></div></div>';
     if (isNew) {
       h += '<div class="field"><label class="fl" for="mi-custom">Choices for customer</label><select id="mi-custom">' + opt('', 'None (just add)', v('custom', '')) + opt('plain', 'Size and sugar', v('custom', '')) + opt('milk', 'Size, milk and sugar', v('custom', '')) + '</select></div>';
       if (assets) h += '<div class="tb-row">' + (menuDraft.img ? '<img class="thumb" src="' + esc(menuDraft.img) + '" alt="">' : '') + '<label class="btn-line filebtn">' + (menuDraft.img ? 'Change photo' : 'Add photo') + '<input type="file" accept="image/*" data-draftfile="1"></label></div>';
+    } else if (assets) {
+      h += '<div class="tb-row">' + (cf0.img ? '<img class="thumb" src="' + esc(cf0.img) + '" alt="">' : '') + '<label class="btn-line filebtn">' + (cf0.img ? 'Change photo' : 'Add photo') + '<input type="file" accept="image/*" data-menufile="' + esc(it.id) + '"></label>' +
+        (cf0.img ? '<button type="button" class="btn-line" data-action="mimgdel" data-id="' + esc(it.id) + '">Remove photo</button>' : '') + '</div>';
     }
-    h += '<div class="tb-row"><button type="button" class="btn-fill" data-action="msave" data-id="' + (isNew ? '+new' : it.id) + '">Save</button>' +
-      '<button type="button" class="btn-line" data-action="mcancel">Cancel</button>' +
-      (!isNew && it.own ? '<button type="button" class="btn-line" data-action="mdel" data-id="' + it.id + '">' + (menuConfirm === it.id ? 'Tap again to delete' : 'Delete item') + '</button>' : '') + '</div></li>';
+    h += '</div></details>' +
+      '<div class="tb-row ef-btns"><button type="button" class="btn-fill" data-action="msave" data-id="' + forKey + '">Save (सेव करें)</button>' +
+      '<button type="button" class="btn-line" data-action="mcancel">Cancel (रद्द)</button></div>' +
+      (!isNew && it.own ? '<div class="tb-row"><button type="button" class="btn-line danger" data-action="mdel" data-id="' + it.id + '">' + (menuConfirm === it.id ? 'Tap again to delete for good' : 'Delete this item (हटाएँ)') + '</button></div>' : '') + '</li>';
     return h;
   }
   function itemRow(i) {
     var cf = cfgOf(i.id);
     if (menuEdit === i.id) return itemForm(i, false);
+    var st = [];
+    st.push(i.veg ? 'Veg' : 'Non-veg');
+    if (cf.soldOut) st.push('SOLD OUT');
+    if (i.hidden) st.push('HIDDEN');
+    if (i.tag) st.push(esc(i.tag));
     return '<li class="crow' + (i.hidden ? ' off' : '') + '"><div class="mm">' + (cf.img ? '<img class="thumb" src="' + esc(cf.img) + '" alt="">' : '') +
-      '<div><p class="c-name">' + esc(i.name) + '</p><small>' + (i.listPrice > i.price ? '<s class="was">' + fmt(i.listPrice) + '</s> ' : '') + fmt(i.price) + (i.custom ? ' from' : '') + (i.veg ? ' · Veg' : ' · Non-veg') +
-      (cf.soldOut ? ' · Sold out' : '') + (i.hidden ? ' · Hidden' : '') + (i.tag ? ' · ' + esc(i.tag) : '') + '</small></div></div>' +
+      '<div><p class="c-name">' + esc(i.name) + '</p><small><b>' + (i.listPrice > i.price ? '<s class="was">' + fmt(i.listPrice) + '</s> ' : '') + fmt(i.price) + (i.custom ? ' from' : '') + '</b> · ' + st.join(' · ') + '</small></div></div>' +
       '<div class="mact"><button type="button" class="btn-fill" data-action="medit" data-id="' + i.id + '">Edit</button>' +
-      '<button type="button" class="btn-line" data-action="msold" data-id="' + i.id + '">' + (cf.soldOut ? 'Back in stock' : 'Mark sold out') + '</button>' +
-      '<button type="button" class="btn-line" data-action="mhide" data-id="' + i.id + '">' + (i.hidden ? 'Show' : 'Hide') + '</button>' +
+      '<button type="button" class="btn-line" data-action="msold" data-id="' + i.id + '">' + (cf.soldOut ? 'Back in stock' : 'Sold out') + '</button>' +
+      '<details class="more2"><summary class="btn-line">More</summary><div class="mact">' +
+      '<button type="button" class="btn-line" data-action="mhide" data-id="' + i.id + '">' + (i.hidden ? 'Show to customers' : 'Hide from customers') + '</button>' +
       (assets ? '<label class="btn-line filebtn">' + (cf.img ? 'Change photo' : 'Add photo') + '<input type="file" accept="image/*" data-menufile="' + i.id + '"></label>' : '') +
       (cf.img ? '<button type="button" class="btn-line" data-action="mimgdel" data-id="' + i.id + '">Remove photo</button>' : '') +
-      '</div></li>';
+      (i.own ? '<button type="button" class="btn-line danger" data-action="mdel" data-id="' + i.id + '">' + (menuConfirm === i.id ? 'Tap again to delete' : 'Delete') + '</button>' : '') +
+      '</div></details></div></li>';
   }
   function secForm(sc, isNew) {
     var d = menuDraft.for === 'sec:' + (isNew ? '+new' : sc.id) ? menuDraft : {};
     var kind = d.kind || (isNew ? 'food' : sc.kind);
-    return '<div class="crow editform"><div class="field"><label class="fl" for="sc-name">Section name</label><input id="sc-name" type="text" maxlength="30" value="' + esc(d.name != null ? d.name : (isNew ? '' : sc.cat)) + '" placeholder="e.g. Dinner"></div>' +
+    return '<div class="crow editform" data-for="sec:' + esc(isNew ? '+new' : sc.id) + '"><p class="ef-title">' + (isNew ? 'New section (नया सेक्शन)' : 'Edit section') + '</p><div class="field"><label class="fl" for="sc-name">Section name (सेक्शन का नाम)</label><input id="sc-name" type="text" maxlength="30" value="' + esc(d.name != null ? d.name : (isNew ? '' : sc.cat)) + '" placeholder="e.g. Dinner"></div>' +
       '<div class="field"><label class="fl" for="sc-nameHi">Section name in Hindi (optional)</label><input id="sc-nameHi" type="text" maxlength="40" value="' + esc(d.nameHi != null ? d.nameHi : (isNew ? '' : (cfgOf(sc.id).catHi || ''))) + '" placeholder="जैसे: डिनर"></div>' +
       '<div class="tb-row"><button type="button" class="btn-line" data-action="autohi" data-id="sec">Auto Hindi</button><span class="fine" id="hi-st" role="status"></span></div>' +
       '<div class="pair"><div class="field"><label class="fl" for="sc-from">Show from (optional)</label><input id="sc-from" type="time" value="' + esc(d.from != null ? d.from : (isNew ? '' : sc.from)) + '"></div>' +
@@ -3229,26 +3242,41 @@ window.FIREBASE_CONFIG = {
       '<div class="tb-row"><button type="button" class="btn-fill" data-action="secsave" data-id="' + (isNew ? '+new' : sc.id) + '">Save</button><button type="button" class="btn-line" data-action="mcancel">Cancel</button></div></div>';
   }
   function menuTab() {
-    var h = '<p class="fine">Change your whole menu here. Customers see changes in a few seconds. Built-in items can be edited or hidden; items you add can also be deleted.</p>';
+    var h = '<div class="panel menuhelp"><h3>Your menu (आपका मेन्यू)</h3><ul class="fine">' +
+      '<li><b>Edit</b> = change name, price or details (बदलें)</li>' +
+      '<li><b>Sold out</b> = item finished for now. Tap again when it is back (ख़त्म हो गया)</li>' +
+      '<li><b>+ Add item</b> = new dish (नया आइटम). <b>+ Add section</b> = new group like Dinner (नया सेक्शन)</li>' +
+      '<li>Customers see changes in a few seconds.</li></ul></div>';
     if (menuNote) h += '<p class="snote" role="status">' + esc(menuNote) + '</p>';
     if (!assets) h += '<p class="snote">Photo upload is not available in this view.</p>';
-    h += '<div class="tb-row"><button type="button" class="btn-fill" data-action="secnew">+ Add section</button><button type="button" class="btn-fill" data-action="mnew" data-id="">+ Add item</button></div>';
+    h += '<div class="tb-row bigadd"><button type="button" class="btn-fill" data-action="mnew" data-id="">+ Add item</button><button type="button" class="btn-line" data-action="secnew">+ Add section</button></div>';
     if (secEdit === '+new') h += secForm(null, true);
     if (menuEdit === '+new') h += '<ul class="clist">' + itemForm(null, true, menuDraft.sec || MENU[0].id) + '</ul>';
     MENU.forEach(function (c, ci) {
       h += '<div class="sechead' + (c.hidden ? ' off' : '') + '"><h3 class="mt-h">' + esc(c.cat) + (c.hidden ? ' (hidden)' : '') + (c.from && c.until ? ' · ' + t12(c.from) + ' to ' + t12(c.until) : '') + '</h3>' +
-        '<div class="mact"><button type="button" class="btn-line" data-action="secedit" data-id="' + c.id + '">Rename</button>' +
-        '<button type="button" class="btn-line" data-action="sechide" data-id="' + c.id + '">' + (c.hidden ? 'Show' : 'Hide') + '</button>' +
-        '<button type="button" class="btn-line" data-action="secup" data-id="' + c.id + '"' + (ci === 0 ? ' disabled' : '') + ' aria-label="Move up">↑</button>' +
-        '<button type="button" class="btn-line" data-action="secdown" data-id="' + c.id + '"' + (ci === MENU.length - 1 ? ' disabled' : '') + ' aria-label="Move down">↓</button>' +
-        (!c.builtin ? '<button type="button" class="btn-line" data-action="secdel" data-id="' + c.id + '">' + (menuConfirm === c.id ? 'Tap again to delete' : 'Delete') + '</button>' : '') +
-        '<button type="button" class="btn-line" data-action="mnew" data-id="' + c.id + '">+ Item here</button></div></div>';
+        '<div class="mact"><button type="button" class="btn-line" data-action="mnew" data-id="' + c.id + '">+ Item here</button>' +
+        '<button type="button" class="btn-line" data-action="secedit" data-id="' + c.id + '">Edit section</button>' +
+        '<details class="more2"><summary class="btn-line">More</summary><div class="mact">' +
+        '<button type="button" class="btn-line" data-action="sechide" data-id="' + c.id + '">' + (c.hidden ? 'Show section' : 'Hide section') + '</button>' +
+        '<button type="button" class="btn-line" data-action="secup" data-id="' + c.id + '"' + (ci === 0 ? ' disabled' : '') + '>Move up ↑</button>' +
+        '<button type="button" class="btn-line" data-action="secdown" data-id="' + c.id + '"' + (ci === MENU.length - 1 ? ' disabled' : '') + '>Move down ↓</button>' +
+        (!c.builtin ? '<button type="button" class="btn-line danger" data-action="secdel" data-id="' + c.id + '">' + (menuConfirm === c.id ? 'Tap again to delete' : 'Delete section') + '</button>' : '') +
+        '</div></details></div></div>';
       if (secEdit === c.id) h += secForm(c, false);
       h += '<ul class="clist">' + (c.items.length ? c.items.map(itemRow).join('') : '<li class="snote">No items yet.</li>') + '</ul>';
     });
     return h;
   }
   function numOrEmpty(x) { return x === '' ? '' : x; }
+  function captureMenuDraft() {
+    var f = document.querySelector('.editform[data-for]');
+    if (!f) return;
+    var key = f.getAttribute('data-for');
+    if (menuEdit && key === menuEdit && $('mi-name')) readItemDraft(menuEdit);
+    else if (secEdit && key === 'sec:' + secEdit && $('sc-name')) {
+      menuDraft = { for: key, name: $('sc-name').value, kind: $('sc-kind').value, nameHi: $('sc-nameHi').value, from: $('sc-from').value, until: $('sc-until').value };
+    }
+  }
   function readItemDraft(forId) {
     var g = function (id) { var e = $(id); return e ? e.value : ''; };
     menuDraft = { for: forId, name: g('mi-name'), desc: g('mi-desc'), price: g('mi-price'), offer: g('mi-offer'), veg: g('mi-veg'), sec: g('mi-sec'), badge: g('mi-badge'), tag: g('mi-tag'), nameHi: g('mi-nameHi'), descHi: g('mi-descHi'), tagHi: g('mi-tagHi'), custom: g('mi-custom'), img: menuDraft.img || '', allg: Array.prototype.map.call(document.querySelectorAll('[data-allg]:checked'), function (e) { return e.getAttribute('data-allg'); }) };
@@ -3270,7 +3298,8 @@ window.FIREBASE_CONFIG = {
     });
     if (!jobs.length) { if (st) st.textContent = 'Write the English first (empty Hindi boxes get filled).'; return; }
     if (st) st.textContent = 'Translating...';
-    Promise.all(jobs).then(function () { if (st) st.textContent = 'Done. Check the Hindi and fix it if needed.'; },
+    captureMenuDraft();
+    Promise.all(jobs).then(function () { captureMenuDraft(); if (st) st.textContent = 'Done. Check the Hindi and fix it if needed.'; },
       function () { if (st) st.textContent = 'Auto Hindi did not work now. Type the Hindi yourself.'; });
   }
   function itemSave(id) {
@@ -3477,6 +3506,7 @@ window.FIREBASE_CONFIG = {
     var ae = document.activeElement;
     if (!force && ae && el.contains(ae) && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) { staffDirty = true; return; }
     staffDirty = false;
+    captureMenuDraft();
     if (!isOwner && ['customers', 'offers', 'menu', 'reports', 'settings'].indexOf(staffTab) >= 0) staffTab = 'orders';
     el.classList.toggle('kbig', staffTab === 'kitchen' && kitchenBig);
     var orders = staffData.orders.slice(), books = staffData.bookings.slice();
@@ -3616,6 +3646,7 @@ window.FIREBASE_CONFIG = {
 
   applyTable();
   if (lang === 'hi') setLang('hi');
+  document.addEventListener('toggle', function (e) { if (e.target && e.target.id === 'mi-more') menuMore = e.target.open; }, true);
   startFirebase();
 })();
 
