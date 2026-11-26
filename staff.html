@@ -6,7 +6,7 @@
 <title>Corner Cup Staff</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=DM+Sans:wght@400;500;600&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap">
 <script>try{var t=localStorage.getItem('cc-theme');document.documentElement.setAttribute('data-theme',t==='light'?'light':'dark')}catch(e){document.documentElement.setAttribute('data-theme','dark')}</script>
-<link rel="stylesheet" href="style.css?v=20">
+<link rel="stylesheet" href="style.css?v=22">
 </head>
 <body>
 
@@ -572,7 +572,7 @@ window.FIREBASE_CONFIG = {
   function splitHTML(o) {
     if (!o || o.demo || !o.shared || stageFor(o) >= 3 || !(+o.total > 0)) return '';
     var id = esc(o.id);
-    if (!splitOpen[o.id]) return '<div class="split"><button type="button" class="btn-line" data-action="splittog" data-id="' + id + '">Split the bill with friends</button></div>';
+    if (!splitOpen[o.id]) return '<div class="split"><button type="button" class="btn-line" data-action="splittog" data-id="' + id + '">Split the bill with friends</button></div>' + gameHTML(o);
     var n = splitN[o.id] || 2, sent = splitSent[o.id] || 0, per = shareAmt(o, n), pay = upiLink(o, per), u = String(setting('upi', '')).trim();
     var msg = 'Corner Cup bill ' + o.token + ': total ' + fmt(o.total) + ', split ' + n + ' ways. Each person pays ' + fmt(per) + (pay ? '. UPI ID: ' + u : '. Pay at the counter.');
     return '<div class="split"><p class="u-title">Split the bill</p>' +
@@ -582,7 +582,37 @@ window.FIREBASE_CONFIG = {
       (sent < n - 1
         ? '<a class="btn-line" target="_blank" rel="noopener" data-action="splitsent" data-id="' + id + '" href="https://wa.me/?text=' + encodeURIComponent(msg) + '">Send to a friend on WhatsApp (' + sent + ' of ' + (n - 1) + ' sent)</a>'
         : '<p class="fine">All ' + (n - 1) + ' friends have been sent. Increase the people number to send to more.</p>') +
-      '<button type="button" class="btn-line" data-action="splittog" data-id="' + id + '">Close</button></div>';
+      '<button type="button" class="btn-line" data-action="splittog" data-id="' + id + '">Close</button></div>' + gameHTML(o);
+  }
+
+  // Bill game: farthest guess from a hidden 4-digit number pays the bill
+  var gameS = {};
+  function rnd4() { var n; try { var a = new Uint32Array(1); crypto.getRandomValues(a); n = a[0] % 10000; } catch (e) { n = Math.floor(Math.random() * 10000); } return ('000' + n).slice(-4); }
+  function gameSave(id) {
+    var g = gameS[id]; if (!g) return;
+    var ns = document.querySelectorAll('.gname[data-id="' + id + '"]'), gs = document.querySelectorAll('.gguess[data-id="' + id + '"]');
+    for (var i = 0; i < ns.length; i++) g.names[+ns[i].getAttribute('data-i')] = ns[i].value;
+    for (var j = 0; j < gs.length; j++) g.guesses[+gs[j].getAttribute('data-i')] = gs[j].value;
+  }
+  function gameHTML(o) {
+    var id = esc(o.id), g = gameS[o.id];
+    if (!g || !g.open) return '<div class="split game"><button type="button" class="btn-line" data-action="gameopen" data-id="' + id + '">🎲 Play Bill Game – loser pays</button></div>';
+    var h = '<div class="split game"><p class="u-title">🎲 Bill Game</p>';
+    if (g.done) {
+      var res = g.rows.slice().sort(function (a, b) { return a.d - b.d; }), worst = res[res.length - 1], tie = res.length > 1 && res[res.length - 2].d === worst.d;
+      h += '<p class="split-amt"><span>Secret number was</span> <strong>' + esc(g.secret) + '</strong></p><ol class="grank">' +
+        res.map(function (r, i) { return '<li class="' + (i === res.length - 1 ? 'lose' : i === 0 ? 'win' : '') + '"><span>' + esc(r.name) + ' – ' + esc(r.guess) + '</span><em>' + (r.d === 0 ? 'exact!' : 'off by ' + r.d) + '</em></li>'; }).join('') + '</ol>';
+      if (tie) h += '<p class="fine">Tie for the farthest guess, so nobody loses yet. Play again!</p>';
+      else {
+        var pay = upiLink(o, +o.total);
+        h += '<p class="gresult"><strong>' + esc(worst.name) + '</strong> pays the whole bill: ' + fmt(o.total) + '</p>' + (pay ? '<a class="place paylink" href="' + esc(pay) + '">Pay ' + fmt(o.total) + '</a>' : '');
+      }
+      return h + '<button type="button" class="btn-line" data-action="gameagain" data-id="' + id + '">Play again</button><button type="button" class="btn-line" data-action="gameclose" data-id="' + id + '">Close</button></div>';
+    }
+    h += '<p class="fine">I have picked a secret 4-digit number. Everyone guesses a different 4-digit number. The guess farthest from the secret pays the bill.</p>' +
+      '<div class="split-row"><span>Friends</span><div class="step"><button type="button" data-action="gamen" data-id="' + id + '" data-d="-1" aria-label="One less">−</button><output aria-live="polite">' + g.n + '</output><button type="button" data-action="gamen" data-id="' + id + '" data-d="1" aria-label="One more">+</button></div></div>';
+    for (var i = 0; i < g.n; i++) h += '<div class="grow"><input class="gname" data-id="' + id + '" data-i="' + i + '" maxlength="20" placeholder="Name ' + (i + 1) + '" value="' + esc(g.names[i] || '') + '" aria-label="Friend ' + (i + 1) + ' name"><input class="gguess" data-id="' + id + '" data-i="' + i + '" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="0000" value="' + esc(g.guesses[i] || '') + '" aria-label="Friend ' + (i + 1) + ' guess"></div>';
+    return h + '<p class="fine gerr" id="gerr-' + id + '" role="alert">' + esc(g.err || '') + '</p><button type="button" class="place" data-action="gamego" data-id="' + id + '">Reveal – who pays?</button><button type="button" class="btn-line" data-action="gameclose" data-id="' + id + '">Close</button></div>';
   }
   function pcodeHTML(o) {
     if (!o || o.type !== 'pickup' || !o.pcode || stageFor(o) >= 3) return '';
@@ -2201,6 +2231,25 @@ window.FIREBASE_CONFIG = {
       } else if (a === 'splittog') {
         splitOpen[id] = !splitOpen[id]; if (!splitN[id]) splitN[id] = 2;
         rerenderSplit();
+      } else if (a === 'gameopen') {
+        gameS[id] = { open: true, n: 3, names: [], guesses: [], secret: rnd4(), done: false }; rerenderSplit();
+      } else if (a === 'gameclose') {
+        delete gameS[id]; rerenderSplit();
+      } else if (a === 'gameagain') {
+        gameS[id] = { open: true, n: gameS[id] ? gameS[id].n : 3, names: [], guesses: [], secret: rnd4(), done: false }; rerenderSplit();
+      } else if (a === 'gamen') {
+        gameSave(id); var gg = gameS[id]; if (gg) { gg.n = Math.max(2, Math.min(10, gg.n + (+btn.getAttribute('data-d') || 0))); rerenderSplit(); }
+      } else if (a === 'gamego') {
+        gameSave(id); var g2 = gameS[id]; if (!g2) return;
+        var rows = [], seen = {}, bad = '';
+        for (var gi = 0; gi < g2.n; gi++) {
+          var nm = String(g2.names[gi] || '').trim() || ('Friend ' + (gi + 1)), gv = String(g2.guesses[gi] || '').trim();
+          if (!/^\d{4}$/.test(gv)) { bad = nm + ': enter a 4-digit number (0000 to 9999).'; break; }
+          if (seen[gv]) { bad = 'Everyone must guess a different number. ' + gv + ' is used twice.'; break; }
+          seen[gv] = 1; rows.push({ name: nm, guess: gv, d: Math.abs(+gv - +g2.secret) });
+        }
+        if (bad) { g2.err = bad; var ge = document.getElementById('gerr-' + id); if (ge) ge.textContent = bad; return; }
+        g2.err = ''; g2.rows = rows; g2.done = true; rerenderSplit();
       } else if (a === 'splitn') {
         splitN[id] = Math.max(2, Math.min(10, (splitN[id] || 2) + (+btn.getAttribute('data-d') || 0)));
         rerenderSplit();

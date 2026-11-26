@@ -732,3 +732,14 @@ html::before { filter: saturate(1.25) brightness(1.18); transform: scale(1.12); 
 @keyframes blink { 50% { opacity: 0.35; } }
 .search{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23F4F0E4' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-4-4'/%3E%3C/svg%3E"),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23F4F0E4' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 7h10M18 7h2M4 17h2M10 17h10'/%3E%3Ccircle cx='16' cy='7' r='2'/%3E%3Ccircle cx='8' cy='17' r='2'/%3E%3C/svg%3E"),var(--glass);background-repeat:no-repeat,no-repeat,no-repeat;background-position:15px center,right 15px center,0 0;background-size:20px,20px,auto;}
 :root[data-theme="light"] .search{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23157046' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-4-4'/%3E%3C/svg%3E"),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23157046' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 7h10M18 7h2M4 17h2M10 17h10'/%3E%3Ccircle cx='16' cy='7' r='2'/%3E%3Ccircle cx='8' cy='17' r='2'/%3E%3C/svg%3E"),var(--glass);}
+/* bill game */
+.game { margin-top: 10px; }
+.grow { display: grid; grid-template-columns: 1fr 96px; gap: 8px; margin-top: 8px; }
+.grow input { min-width: 0; padding: 12px 14px; border-radius: 14px; font-size: 16px; }
+.gguess { text-align: center; letter-spacing: 0.2em; font-family: var(--font-display); font-weight: 700; }
+.grank { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 6px; }
+.grank li { display: flex; justify-content: space-between; gap: 8px; padding: 10px 14px; border-radius: 14px; border: 1px solid var(--glass-line); background: var(--glass); }
+.grank li.win { border-color: var(--veg); } .grank li.lose { border-color: var(--danger); color: var(--danger); font-weight: 700; }
+.grank em { font-style: normal; color: var(--muted); }
+.gresult { margin: 8px 0; padding: 14px; border-radius: 16px; text-align: center; background: var(--warn-bg); color: var(--ink); font-size: 18px; }
+.gerr { color: var(--danger); min-height: 1.2em; }
