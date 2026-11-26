@@ -3520,6 +3520,41 @@ window.FIREBASE_CONFIG = {
     return h;
   }
 
+  // Re-check an order's money with today's menu, so a changed amount is spotted
+  function orderCheck(o) {
+    var r = o.rec, bad = [];
+    if (!r || !Array.isArray(r.lines) || !r.lines.length) return bad;
+    var sub = 0, unknown = false, bigQ = false;
+    r.lines.forEach(function (l) {
+      var it = byId[l.id], q = +l.q || 0;
+      if (!it) { unknown = true; return; }
+      if (q < 1 || q > 20) bigQ = true;
+      var up = it.price;
+      if (it.custom) {
+        var sz = find(SIZES, l.size), mk = find(MILKS, l.milk);
+        up += sz ? sz.add : 0;
+        if (it.custom === 'milk') up += mk ? mk.add : 0;
+      }
+      sub += up * q;
+    });
+    if (unknown) bad.push('an item is not on the menu');
+    if (bigQ) bad.push('odd item quantity');
+    if (!unknown && Math.abs(sub - (+r.sub || 0)) > 1) bad.push('items add up to ' + fmt(sub) + ' on the menu, order says ' + fmt(r.sub) + ' (or the menu price changed)');
+    var calc = Math.round((((+r.sub || 0) - (+r.hh || 0) - (+r.reward || 0) - (+r.combo || 0) - (+r.promo || 0)) * (1 + GST)) * 100) / 100;
+    if (Math.abs(calc - (+o.total || 0)) > 0.1) bad.push('total ' + fmt(o.total) + ' does not match its own discounts (should be ' + fmt(calc) + ')');
+    if ((+r.combo || 0) > COMBO) bad.push('combo discount is too big');
+    return bad;
+  }
+  function discountLine(o) {
+    var r = o.rec;
+    if (!r) return '';
+    var p = [];
+    if (+r.hh > 0) p.push('Happy hour −' + fmt(r.hh));
+    if (+r.reward > 0) p.push('Free coffee (stamps) −' + fmt(r.reward));
+    if (+r.combo > 0) p.push('Combo −' + fmt(r.combo));
+    if (+r.promo > 0) p.push(esc(r.code || 'Promo') + ' −' + fmt(r.promo));
+    return p.length ? '<p class="t-note">Discounts: ' + p.join(' · ') + '</p>' : '';
+  }
   function orderCard(o) {
     var raw = staffStage(o), rej = raw === 4, st = Math.min(3, raw);
     var mins = Math.round((Date.now() - o.placedAt) / 60000);
@@ -3532,7 +3567,8 @@ window.FIREBASE_CONFIG = {
       '<div class="t-head"><span class="t-token">' + esc(o.token) + '</span><span class="pill ' + (rej ? 'bad' : 's' + st) + '">' + (rej ? 'Rejected' : STAGE_NAMES[st] + (by ? ' · ' + esc(by) : '')) + '</span></div>' +
       '<p class="t-meta">' + esc(o.name) + (o.phone ? ' · ' + esc(isOwner ? showPhone(o.phone) : maskPhone(o.phone)) : '') + ' · ' + (o.type === 'dinein' ? 'Table ' + esc(o.table) : 'Pickup') + ' · ' + clock(o.placedAt) + (o.due ? ' · COLLECT AT ' + clock(o.due) : '') + (st < 3 ? ' (' + mins + ' min ago)' + (late ? ' <b class="late-tag">LATE</b>' : '') : '') + '</p>' +
       '<ul class="t-rows">' + items + '</ul>' +
-      (o.note ? '<p class="t-note">Note: ' + esc(o.note) + '</p>' : '') +
+      (o.note ? '<p class="t-note">Note: ' + esc(o.note) + '</p>' : '') + discountLine(o) +
+      (orderCheck(o).length ? '<p class="t-warn" role="alert">⚠ Check this order before taking money: ' + orderCheck(o).map(esc).join('; ') + '.</p>' : '') +
       '<div class="t-foot"><strong>' + fmt(o.total) + ' · ' + (rej ? 'Not served' : st >= 3 ? 'Paid' : 'To collect') + '</strong>' +
       (st < 3 ? '<button type="button" class="btn-line" data-action="reject" data-uid="' + esc(o.uid) + '" data-id="' + esc(o.id) + '"' + (staffBusy ? ' disabled' : '') + '>' + (rejConfirm === o.id ? 'Tap again to reject' : 'Reject') + '</button>' : '') +
       (rej && o.phone ? (isBlocked(o.phone) ? '<span class="pill s3">Number blocked</span>' : blockButton(o.phone, o.name, false)) : '') +

@@ -469,3 +469,5 @@ img, svg, video { max-width: 100%; }
 .warnbox { background: var(--warn-bg); color: var(--warn); padding: 10px 12px; border-radius: 10px; margin: 0; }
 .payalt .qrimg { max-width: 200px; margin: 0 auto; }
 .upirow { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; overflow-wrap: anywhere; }
+
+.t-warn { margin: 6px 0; padding: 8px 10px; border-radius: 8px; background: var(--warn-bg); color: var(--warn); font-weight: 600; font-size: 14px; }
