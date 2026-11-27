@@ -6,7 +6,7 @@
 <title>Corner Cup</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=DM+Sans:wght@400;500;600&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap">
 <script>try{var t=localStorage.getItem('cc-theme');document.documentElement.setAttribute('data-theme',t==='light'||(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark')}catch(e){document.documentElement.setAttribute('data-theme','dark')}</script>
-<link rel="stylesheet" href="style.css?v=26">
+<link rel="stylesheet" href="style.css?v=30">
 </head>
 <body>
 
@@ -1190,6 +1190,28 @@ window.FIREBASE_CONFIG = {
     return id + '|' + o.size + '|' + (it.custom === 'milk' ? o.milk : '-') + '|' + o.sugar;
   }
   if (!cart || typeof cart !== 'object') cart = {};
+  var tip = 0, bdSaved = String(load('cc-bday', '') || ''), refSaved = String(load('cc-ref', '') || '');
+  try { var rq = /[?&]ref=(\d{6})/.exec(location.search); if (rq && !refSaved) { refSaved = rq[1]; save('cc-ref', refSaved); } } catch (eR) {}
+  function myRefCode() { return String(savedPhone || '').replace(/\D/g, '').slice(-6); }
+  function bdPct() {
+    var pct = Math.round(+setting('bdPct', 0)), m = /^(\d\d)-(\d\d)$/.exec(bdSaved);
+    if (!(pct >= 1 && pct <= 90) || !m) return 0;
+    var now = new Date(), y = now.getFullYear(), ok = false;
+    [y - 1, y, y + 1].forEach(function (yy) { var d = new Date(yy, +m[1] - 1, +m[2]); if (Math.abs(now - d) / 86400000 <= 3.5) ok = true; });
+    if (ok && custDoc && +custDoc.bdYear === y) ok = false;
+    return ok ? pct : 0;
+  }
+  function refPct() {
+    var pct = Math.round(+setting('refPct', 0));
+    if (!(pct >= 1 && pct <= 90) || !/^\d{6}$/.test(refSaved) || refSaved === myRefCode() || !isFirstOrder()) return 0;
+    return pct;
+  }
+  function extraOffer() {
+    var b = bdPct(), r = refPct();
+    if (!b && !r) return null;
+    return b >= r ? { pct: b, kind: 'bday' } : { pct: r, kind: 'ref' };
+  }
+  function isPaused() { return !!setting('paused', ''); }
   Object.keys(cart).forEach(function (k) {
     var l = cart[k], it = l && byId[l.id];
     var ok = it && l.qty > 0 && keyOf(l.id, l) === k;
@@ -1262,11 +1284,15 @@ window.FIREBASE_CONFIG = {
       else if (po.first && !isFirstOrder()) promoMsg = promoCode + ' works on a first order only.';
       else promo = Math.min(po.calc(base), base);
     }
-    var taxable = base - promo;
+    var ex = extraOffer(), ext = 0, extKind = '', extPct = 0;
+    if (ex && base - promo > 0) { ext = Math.min(Math.round((base - promo) * ex.pct / 100), base - promo); extKind = ex.kind; extPct = ex.pct; }
+    var taxable = base - promo - ext;
     var gst = Math.round(taxable * GST * 100) / 100;
+    var tipAmt = n > 0 ? Math.max(0, Math.min(500, Math.round(+tip || 0))) : 0;
     return {
       sub: sub, n: n, hh: hh, hhPct: hh > 0 ? (hhActive() || {}).pct : 0, reward: reward, combo: combo, promo: promo, promoMsg: promoMsg, gst: gst,
-      total: Math.round((taxable + gst) * 100) / 100,
+      ext: ext, extKind: extKind, extPct: extPct, tip: tipAmt,
+      total: Math.round((taxable + gst + tipAmt) * 100) / 100,
       rewardWaiting: rewardReady() && coffeeMin === null && n > 0,
       comboHint: n > 0 && ((hasDrink && !hasFood) || (!hasDrink && hasFood))
     };
@@ -1408,6 +1434,28 @@ window.FIREBASE_CONFIG = {
       el.textContent = 'Try FIRSTCUP or CHAI20.';
     }
   }
+  function renderTip(t) {
+    var el = slot('tipbox', $('totals'));
+    if (!t || t.n === 0) { el.innerHTML = ''; return; }
+    el.innerHTML = '<p class="u-title">Tip for the team (optional)</p><div class="tiprow">' + [0, 10, 20, 50].map(function (v) {
+      return '<button type="button" class="chip" data-action="tip" data-v="' + v + '" aria-pressed="' + (t.tip === v) + '">' + (v ? '₹' + v : 'No tip') + '</button>';
+    }).join('') + '</div>';
+  }
+  function renderBday() {
+    var on = Math.round(+setting('bdPct', 0)) >= 1, el = slot('bd-field', $('f-note') ? $('f-note').parentNode : null);
+    if (!on) { el.innerHTML = ''; return; }
+    var mm = /^(\d\d)-(\d\d)$/.exec(bdSaved);
+    if (el.getAttribute('data-bd') === (mm ? 'set' : 'open') && el.innerHTML) return;
+    el.setAttribute('data-bd', mm ? 'set' : 'open');
+    el.className = 'field';
+    el.innerHTML = '<label class="fl" for="f-bday">Birthday (optional)</label><input id="f-bday" type="text" inputmode="numeric" maxlength="5" placeholder="DD/MM" autocomplete="off" value="' + (mm ? mm[2] + '/' + mm[1] : '') + '"' + (mm ? ' readonly' : '') + '><p class="hint">' + (mm ? 'Saved. Birthday week gets ' + esc(String(setting('bdPct', 0))) + '% off, once a year.' : 'Add it once to get ' + esc(String(setting('bdPct', 0))) + '% off in your birthday week. It cannot be changed later.') + '</p>';
+  }
+  function renderPause() {
+    var el = slot('pausebar', $('menu'));
+    if (!isPaused()) { el.innerHTML = ''; el.className = ''; return; }
+    el.className = 'banner pausebar'; el.setAttribute('role', 'status');
+    el.innerHTML = '<strong>Online orders are paused for now.</strong> Please order at the counter.';
+  }
   function renderTotals() {
     var t = totals();
     var h = '<div><span>Subtotal</span><span>' + fmt(t.sub) + '</span></div>';
@@ -1415,7 +1463,9 @@ window.FIREBASE_CONFIG = {
     if (t.reward > 0) h += '<div class="save"><span>Free coffee (stamp card)</span><span>−' + fmt(t.reward) + '</span></div>';
     if (t.combo > 0) h += '<div class="save"><span>Drink + bite combo</span><span>−' + fmt(t.combo) + '</span></div>';
     if (t.promo > 0) h += '<div class="save"><span>' + esc(promoCode) + '</span><span>−' + fmt(t.promo) + '</span></div>';
+    if (t.ext > 0) h += '<div class="save"><span>' + (t.extKind === 'bday' ? 'Birthday treat (' : 'Friend offer (') + t.extPct + '% off)</span><span>−' + fmt(t.ext) + '</span></div>';
     h += '<div><span>GST (5%)</span><span>' + fmt(t.gst) + '</span></div>';
+    if (t.tip > 0) h += '<div><span>Tip for the team</span><span>' + fmt(t.tip) + '</span></div>';
     h += '<div class="grand"><span>Total</span><span>' + fmt(t.total) + '</span></div>';
     $('totals').innerHTML = h;
     var hints = '';
@@ -1426,9 +1476,11 @@ window.FIREBASE_CONFIG = {
     if (wi) $('hints').innerHTML += '<p class="hint">Wait right now: about ' + wi.min + ' min</p>';
     renderUpsell();
     $('place').textContent = 'Place order · ' + fmt(t.total);
-    $('place').disabled = t.n === 0;
+    $('place').disabled = t.n === 0 || isPaused();
+    renderTip(t); renderBday(); renderPause();
     renderPromoMsg(t);
   }
+  function updateBar() { var t = totals(); if ($('bar-amt')) $('bar-amt').textContent = fmt(t.total); }
   function updateAll() {
     var t = totals();
     renderCtls();
@@ -1600,7 +1652,24 @@ window.FIREBASE_CONFIG = {
   }
   // Tell the customer the moment the order is ready: sound, vibration and a banner
   var lastStageSeen = null, baseTitle = document.title;
+  var readyTimer = null;
+  function offlineBar() {
+    var el = $('offbar');
+    if (!el) { el = document.createElement('div'); el.id = 'offbar'; el.setAttribute('role', 'alert'); document.body.appendChild(el); }
+    var off = navigator.onLine === false;
+    el.hidden = !off;
+    el.textContent = MODE === 'staff' ? 'No internet. New orders will not show until you are back online.' : 'No internet. Please reconnect before you place your order.';
+  }
+  window.addEventListener('online', offlineBar); window.addEventListener('offline', offlineBar);
+  setTimeout(offlineBar, 300);
   function showReady(o) {
+    if (readyTimer) clearInterval(readyTimer);
+    var rounds = 0;
+    readyTimer = setInterval(function () {
+      var rb = $('ready-banner');
+      if (!rb || rb.hidden || ++rounds > 4) { clearInterval(readyTimer); readyTimer = null; return; }
+      try { beep(true); } catch (e3) {}
+    }, 15000);
     var el = $('ready-banner');
     if (!el) { el = document.createElement('div'); el.id = 'ready-banner'; el.className = 'readybanner'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
     el.innerHTML = '<span>' + esc('Order ' + o.token + (o.type === 'dinein' ? ' is at your table.' : ' is ready to collect.')) + '</span><button type="button" class="btn-line" data-action="readyok">OK</button>';
@@ -1648,7 +1717,8 @@ window.FIREBASE_CONFIG = {
         optIn: f.optIn !== undefined ? f.optIn : !!d.optIn,
         orders: d.orders || 0, spent: d.spent || 0,
         stamps: typeof d.stamps === 'number' ? d.stamps : 0,
-        freeCoffees: d.freeCoffees || 0, firstAt: d.firstAt || now, lastAt: d.lastAt || 0
+        freeCoffees: d.freeCoffees || 0, firstAt: d.firstAt || now, lastAt: d.lastAt || 0,
+        bday: d.bday || f.bday || '', bdYear: f.bdUsed ? new Date().getFullYear() : (d.bdYear || 0)
       };
       if (f.order) {
         body.orders += 1;
@@ -1686,6 +1756,7 @@ window.FIREBASE_CONFIG = {
         }
         if (custDoc.phone && !savedPhone) { savedPhone = custDoc.phone; save('corner-cup-phone', savedPhone); }
         if (custDoc.name && !savedName) { savedName = custDoc.name; save('corner-cup-name', savedName); }
+        if (custDoc.bday && !bdSaved) { bdSaved = custDoc.bday; save('cc-bday', bdSaved); }
         prefill();
       }
       renderStamps();
@@ -1808,7 +1879,9 @@ window.FIREBASE_CONFIG = {
     if (r.reward > 0) tot += '<div><span>Free coffee (stamp card)</span><span>−' + fmt(r.reward) + '</span></div>';
     if (r.combo > 0) tot += '<div><span>Drink + bite combo</span><span>−' + fmt(r.combo) + '</span></div>';
     if (r.promo > 0) tot += '<div><span>' + esc(r.code || 'Promo') + '</span><span>−' + fmt(r.promo) + '</span></div>';
+    if (r.ext > 0) tot += '<div><span>' + (r.extKind === 'bday' ? 'Birthday treat' : 'Friend offer') + '</span><span>−' + fmt(r.ext) + '</span></div>';
     tot += '<div><span>GST (5%)</span><span>' + fmt(r.gst) + '</span></div>';
+    if (r.tip > 0) tot += '<div><span>Tip for the team</span><span>' + fmt(r.tip) + '</span></div>';
     tot += '<div class="grand"><span>Total</span><span>' + fmt(r.total) + '</span></div>';
     return '<div class="receipt">' +
       '<p class="r-brand">Corner Cup</p>' +
@@ -1880,7 +1953,9 @@ window.FIREBASE_CONFIG = {
       if (r.reward > 0) pair('Free coffee (stamp card)', '−' + fmt(r.reward));
       if (r.combo > 0) pair('Drink + bite combo', '−' + fmt(r.combo));
       if (r.promo > 0) pair(r.code || 'Promo', '−' + fmt(r.promo));
+      if (r.ext > 0) pair(r.extKind === 'bday' ? 'Birthday treat' : 'Friend offer', '−' + fmt(r.ext));
       pair('GST (5%)', fmt(r.gst));
+      if (r.tip > 0) pair('Tip for the team', fmt(r.tip));
       y += 2; pair('Total', fmt(r.total), '700 20px ' + fam, INK, 34);
       dash(); y += 28;
       txt(stage >= 3 ? 'Paid at the counter' : 'To pay at the counter', P, '700 15px ' + fam, INK);
@@ -1934,6 +2009,7 @@ window.FIREBASE_CONFIG = {
     $('done-live').textContent = 'Order status: ' + stageName(order, order.stage);
     $('done-receipt').innerHTML = receiptHTML(order, order.stage);
     slot('done-pay', $('done-receipt')).innerHTML = order.shared ? payHTML(order) : '';
+    slot('done-ref', $('done-receipt')).innerHTML = (Math.round(+setting('refPct', 0)) >= 1 && /^\d{6}$/.test(myRefCode()) && !isCancelled(order)) ? '<div class="refcard"><strong>Invite a friend</strong><span>They get ' + esc(String(setting('refPct', 0))) + '% off their first order. You get a stamp when they order.</span><a class="btn-line" target="_blank" rel="noopener" href="https://wa.me/?text=' + encodeURIComponent('Try Corner Cup! Use my link for ' + setting('refPct', 0) + '% off your first order: ' + location.href.split('#')[0].split('?')[0] + '?ref=' + myRefCode()) + '">Send on WhatsApp</a></div>' : '';
     slot('done-cancel', $('done-receipt')).innerHTML = isCancelled(order) ? '<div class="cancelbox"><span>This order was cancelled by the cafe.</span>' + (cancelWhy(order) ? '<small>Reason: ' + esc(cancelWhy(order)) + '</small>' : '<small>Please ask the staff at the counter if you have questions.</small>') + '</div>' : '';
     slot('done-split', $('done-receipt')).innerHTML = splitHTML(order);
     slot('done-pcode', $('done-receipt')).innerHTML = pcodeHTML(order);
@@ -2364,11 +2440,20 @@ window.FIREBASE_CONFIG = {
         staffWrite(btn.getAttribute('data-uid'), id, 'stages', 4);
         var tt = ro && ro.type === 'dinein' && staffData.tables[ro.table];
         if (tt && tt.uid === ro.uid && db) db.doc('tables/' + ro.table).delete().then(function () {}, function () {});
+      } else if (a === 'tip') {
+        tip = +btn.getAttribute('data-v') || 0; renderTotals(); updateBar();
+      } else if (a === 'pausetog') {
+        menuWrite('settings', { paused: isPaused() ? '' : '1' }).then(function () { setMsg = menuNote || (isPaused() ? 'Online orders are paused.' : 'Online orders are open.'); renderStaff(true); });
+      } else if (a === 'cleanold') {
+        cleanOld();
+      } else if (a === 'refreward') {
+        refReward(btn.getAttribute('data-uid'), id, btn.getAttribute('data-ref'));
       } else if (a === 'rejback') {
         rejConfirm = ''; renderStaff(true);
       } else if (a === 'tfree') {
         if (db) db.doc('tables/' + id).delete().then(function () {}, function () { staffErr = 'error'; renderStaff(true); });
       } else if (a === 'readyok') {
+        if (readyTimer) { clearInterval(readyTimer); readyTimer = null; }
         if ($('ready-banner')) $('ready-banner').hidden = true;
         document.title = baseTitle;
       } else if (a === 'callopen') {
@@ -2441,7 +2526,7 @@ window.FIREBASE_CONFIG = {
         var hhSecs = Array.prototype.map.call(document.querySelectorAll('[data-hhsec]:checked'), function (e) { return e.getAttribute('data-hhsec'); }).join(',');
         if (hhOn && (!hhFrom || !hhUntil || hhFrom === hhUntil)) { setMsg = 'Happy hour: choose different From and Until times.'; renderStaff(true); return; }
         if (hhOn && (hhPct < 1 || hhPct > 90)) { setMsg = 'Happy hour discount must be between 1 and 90.'; renderStaff(true); return; }
-        menuWrite('settings', { lockMin: +($('st-lock') ? $('st-lock').value : 30) || 30, upi: upi, payee: payee, google: gl, lateMin: lm, hhOn: hhOn ? '1' : '', hhFrom: hhFrom, hhUntil: hhUntil, hhPct: hhPct, hhSecs: hhSecs }).then(function () { setMsg = menuNote || 'Saved.'; renderStaff(true); });
+        menuWrite('settings', { lockMin: +($('st-lock') ? $('st-lock').value : 30) || 30, upi: upi, payee: payee, google: gl, lateMin: lm, hhOn: hhOn ? '1' : '', hhFrom: hhFrom, hhUntil: hhUntil, hhPct: hhPct, hhSecs: hhSecs, bdPct: Math.max(0, Math.min(90, Math.round(+($('st-bd') ? $('st-bd').value : 0) || 0))), refPct: Math.max(0, Math.min(90, Math.round(+($('st-ref') ? $('st-ref').value : 0) || 0))), reportPhone: String(($('st-rep') ? $('st-rep').value : '')).replace(/\D/g, '').slice(-10) }).then(function () { setMsg = menuNote || 'Saved.'; renderStaff(true); });
       } else if (a === 'autohi') {
         autoHindi(id);
       } else if (a === 'dlcust') {
@@ -2545,6 +2630,7 @@ window.FIREBASE_CONFIG = {
     e.preventDefault();
     var t = totals();
     if (t.n === 0) return;
+    if (isPaused()) { placeError('Online orders are paused for now. Please order at the counter.'); return; }
     var name = $('f-name').value.trim();
     var table = (type === 'dinein' && tableNo ? tableNo : $('f-table').value).trim();
     var phone = cleanPhone($('f-phone').value);
@@ -2578,7 +2664,7 @@ window.FIREBASE_CONFIG = {
       var l = cart[k], it = byId[l.id];
       return { id: l.id, q: l.qty, size: l.size, milk: l.milk, sugar: l.sugar, name: it.name, sub: optLabel(l.id, l), amt: unitPrice(l.id, l) * l.qty };
     });
-    var rec = { lines: lines, sub: t.sub, hh: t.hh, hhPct: t.hhPct || 0, reward: t.reward, combo: t.combo, promo: t.promo, code: t.promo > 0 ? promoCode : '', gst: t.gst, total: t.total };
+    var rec = { lines: lines, sub: t.sub, hh: t.hh, hhPct: t.hhPct || 0, reward: t.reward, combo: t.combo, promo: t.promo, code: t.promo > 0 ? promoCode : '', ext: t.ext, extKind: t.extKind, extPct: t.extPct, tip: t.tip, gst: t.gst, total: t.total };
     var items = lines.map(function (l) { return { t: l.q + ' × ' + l.name, sub: l.sub }; });
 
     var stampMsg, newStamps;
@@ -2597,6 +2683,7 @@ window.FIREBASE_CONFIG = {
       id: id, token: 'CC-' + (100 + Math.floor(Math.random() * 900)), type: type, table: table, name: name, phone: phone, pay: 'counter',
       note: $('f-note').value.trim(), eta: eta, placedAt: Date.now(), items: items, total: t.total, rec: rec
     };
+    if (t.extKind === 'ref') payload.ref = refSaved;
     if (pickIn) { payload.pickIn = pickIn; payload.due = Date.now() + pickIn * 60000; }
     if (type === 'pickup') payload.pcode = String(100 + Math.floor(Math.random() * 900));
 
@@ -2626,7 +2713,7 @@ window.FIREBASE_CONFIG = {
       }
       if ($('code-field')) $('code-field').hidden = true;
       return share('orders', payload).then(function (ok) {
-      if (ok) upsertCustomer({ phone: phone, name: name, optIn: optIn, stamps: newStamps, order: { total: t.total, free: t.reward > 0 } });
+      if (ok) upsertCustomer({ phone: phone, name: name, optIn: optIn, stamps: newStamps, bday: bdSaved, bdUsed: t.extKind === 'bday', order: { total: t.total, free: t.reward > 0 } });
       stamps = newStamps;
       save('corner-cup-stamps', stamps);
       localOrders = [Object.assign({}, payload, { demo: !ok })].concat(localOrders).slice(0, 8);
@@ -2639,7 +2726,7 @@ window.FIREBASE_CONFIG = {
       } else {
         timers = [setTimeout(function () { setStage(1); }, 5000), setTimeout(function () { setStage(2); }, 14000)];
       }
-      cart = {};
+      cart = {}; tip = 0;
       promoCode = ''; promoErr = '';
       $('f-promo').value = '';
       $('f-note').value = '';
@@ -3122,7 +3209,16 @@ window.FIREBASE_CONFIG = {
     if (e.target.id === 'k-name') { kname = e.target.value.trim(); save('cc-kname', kname); }
   });
   document.addEventListener('change', function (e) {
-    if (e.target.getAttribute && e.target.getAttribute('data-badge')) {
+    if (e.target.id === 'f-bday' && !e.target.readOnly) {
+      var bm = /^(\d{1,2})[\/.-](\d{1,2})$/.exec(e.target.value.trim()), bdd = bm ? +bm[1] : 0, bmm = bm ? +bm[2] : 0;
+      if (bm && bmm >= 1 && bmm <= 12 && bdd >= 1 && bdd <= new Date(2024, bmm, 0).getDate()) {
+        bdSaved = ('0' + bmm).slice(-2) + '-' + ('0' + bdd).slice(-2); save('cc-bday', bdSaved);
+        var bf = $('bd-field'); if (bf) bf.innerHTML = '';
+        renderTotals(); updateBar();
+      }
+    } else if (e.target.getAttribute && e.target.getAttribute('data-clean')) {
+      cleanDays = +e.target.value || 180; cleanConfirm = false; renderStaff(true);
+    } else if (e.target.getAttribute && e.target.getAttribute('data-badge')) {
       var bid = e.target.getAttribute('data-badge'), bv = e.target.value;
       e.target.blur();
       menuWrite(bid, { badge: bv }).then(function () { renderStaff(true); });
@@ -3242,6 +3338,50 @@ window.FIREBASE_CONFIG = {
       return '<div class="blk-row"><span>' + esc(b.name || 'Customer') + '<br><small>' + esc(showPhone(ph)) + '</small></span>' + blockButton(ph, b.name, true) + '</div>';
     }).join('') : '<p class="fine">No blocked numbers. You can block a number from a rejected order.</p>') + '</div>';
   }
+  var cleanDays = 180, cleanConfirm = false;
+  function oldDocs() {
+    var cut = Date.now() - cleanDays * 86400000, last = {};
+    staffData.orders.forEach(function (o) { last[o.uid] = Math.max(last[o.uid] || 0, +o.placedAt || 0); });
+    return Object.keys(last).filter(function (u) { return last[u] < cut; });
+  }
+  function cleanPanel() {
+    var n = oldDocs().length;
+    return '<div class="panel"><h3>Clean old records</h3><p class="fine">Deletes the orders of customers whose last order is older than this. Customer list, stamps and sales history are kept. Download all orders first from the Orders tab if you want a copy.</p>' +
+      '<div class="field"><label class="fl" for="st-clean">Older than</label><select id="st-clean" data-clean="1">' + [90, 180, 365].map(function (d) { return '<option value="' + d + '"' + (d === cleanDays ? ' selected' : '') + '>' + d + ' days</option>'; }).join('') + '</select></div>' +
+      '<p class="fine">' + n + ' old record' + (n === 1 ? '' : 's') + ' found.</p><div class="t-btns"><button type="button" class="btn-line danger" data-action="cleanold"' + (n ? '' : ' disabled') + '>' + (cleanConfirm ? 'Tap again to delete ' + n : 'Delete old records') + '</button></div></div>';
+  }
+  function cleanOld() {
+    var ids = oldDocs();
+    if (!db || !ids.length) return;
+    if (!cleanConfirm) { cleanConfirm = true; renderStaff(true); setTimeout(function () { if (cleanConfirm) { cleanConfirm = false; renderStaff(true); } }, 8000); return; }
+    cleanConfirm = false;
+    var jobs = [], b = db.batch(), c = 0;
+    ids.forEach(function (u) {
+      b.delete(db.doc('orders/' + u)); b.delete(db.doc('status/' + u)); c += 2;
+      if (c >= 400) { jobs.push(b.commit()); b = db.batch(); c = 0; }
+    });
+    if (c) jobs.push(b.commit());
+    Promise.all(jobs).then(function () { setMsg = 'Deleted ' + ids.length + ' old record' + (ids.length === 1 ? '' : 's') + '.'; renderStaff(true); }, function () { setMsg = 'Could not delete. Try again.'; renderStaff(true); });
+  }
+  function refReward(userId, orderId, code) {
+    if (!db || !isOwner || !userId || !orderId) return;
+    var m = staffData.customers.filter(function (c) { return String(c.phone || '').replace(/\D/g, '').slice(-6) === code; });
+    if (m.length !== 1 || !m[0].uid) { staffNote = m.length ? 'More than one customer matches this code. Give the stamp by hand.' : 'No customer with this code was found.'; renderStaff(true); return; }
+    var p = { refd: {} }; p.refd[orderId] = true;
+    Promise.all([
+      db.doc('customers/' + m[0].uid).set({ stamps: Math.min(STAMPS_FULL, (+m[0].stamps || 0) + 1) }, { merge: true }),
+      db.doc('status/' + userId).set(p, { merge: true })
+    ]).then(function () { m[0].stamps = Math.min(STAMPS_FULL, (+m[0].stamps || 0) + 1); staffNote = 'Referrer ' + (m[0].name || '') + ' got +1 stamp.'; renderStaff(true); }, function () { staffNote = 'Could not give the stamp. Try again.'; renderStaff(true); });
+  }
+  function repButton() {
+    var ph = String(setting('reportPhone', '')).replace(/\D/g, '').slice(-10);
+    if (ph.length !== 10) return '<p class="fine">Add your WhatsApp number in Settings to send the daily report.</p>';
+    var agg = salesAgg(1), today = agg.days[agg.days.length - 1], t0 = new Date().setHours(0, 0, 0, 0);
+    var rej = staffData.orders.filter(function (o) { return o.placedAt >= t0 && staffStage(o) === 4; }).length;
+    var items = Object.keys(agg.items).sort(function (a, b) { return agg.items[b] - agg.items[a]; }).slice(0, 3).map(function (k) { return k + ' (' + agg.items[k] + ')'; }).join(', ');
+    var msg = 'Corner Cup report, ' + new Date().toLocaleDateString('en-IN') + '\nOrders: ' + today.n + '\nSales: ' + fmt(today.total) + '\nAverage order: ' + (today.n ? fmt(today.total / today.n) : '-') + '\nRejected: ' + rej + (items ? '\nTop items: ' + items : '');
+    return '<div class="t-btns"><a class="btn-fill" target="_blank" rel="noopener" href="https://wa.me/91' + ph + '?text=' + encodeURIComponent(msg) + '">Send today\'s report on WhatsApp</a></div>';
+  }
   function settingsTab() {
     var st = (menuCfg && menuCfg.settings) || {};
     return '<p class="fine">These settings are used on the customer page.</p>' + (setMsg ? '<p class="snote" role="status">' + esc(setMsg) + '</p>' : '') +
@@ -3261,7 +3401,12 @@ window.FIREBASE_CONFIG = {
         return '<label class="check"><input type="checkbox" data-hhsec="' + esc(c.id) + '"' + (String(st.hhSecs || '').split(',').indexOf(c.id) >= 0 ? ' checked' : '') + '><span>' + esc(c.cat) + '</span></label>';
       }).join('') + '</div></fieldset>' +
       '<p class="fine">In these hours the chosen items get this much off, and customers see a Happy hour banner. It starts and ends by itself every day.</p></div>' +
-      '<div class="t-btns"><button type="button" class="btn-fill" data-action="stsave">Save settings</button></div>' +
+      '<div class="panel"><h3>Orders on/off</h3><p class="fine">' + (isPaused() ? 'Online orders are PAUSED. Customers see a message and cannot order.' : 'Online orders are open.') + '</p><div class="t-btns"><button type="button" class="btn-line" data-action="pausetog">' + (isPaused() ? 'Open online orders' : 'Pause online orders') + '</button></div></div>' +
+      '<div class="panel"><h3>Offers for new customers</h3><div class="pair"><div class="field"><label class="fl" for="st-bd">Birthday week (% off)</label><input id="st-bd" type="number" inputmode="numeric" min="0" max="90" value="' + esc(st.bdPct || 0) + '"></div>' +
+      '<div class="field"><label class="fl" for="st-ref">Friend offer (% off first order)</label><input id="st-ref" type="number" inputmode="numeric" min="0" max="90" value="' + esc(st.refPct || 0) + '"></div></div>' +
+      '<p class="fine">0 means off. Birthday: once a year, in the 3 days around the birthday the customer saved. Friend offer: the friend gets the discount; on the order card you can give the referrer +1 stamp.</p></div>' +
+      '<div class="panel"><h3>Daily report on WhatsApp</h3><div class="field"><label class="fl" for="st-rep">Your WhatsApp number</label><input id="st-rep" type="tel" inputmode="numeric" maxlength="14" value="' + esc(st.reportPhone || '') + '" placeholder="9876543210"></div><p class="fine">On the Reports tab a button sends today\'s summary to this number.</p></div>' +
+      '<div class="t-btns"><button type="button" class="btn-fill" data-action="stsave">Save settings</button></div>' + cleanPanel() +
       '<div class="panel"><h3>Add kitchen staff</h3><p class="fine">1) Firebase, Authentication, Users, Add user (email and password). 2) Firebase, Firestore, Rules: add the same email in the staff list. Kitchen staff see only Orders, Kitchen, Bookings, Tables and QR code.</p></div>';
   }
   function tablesTab() {
@@ -3630,7 +3775,7 @@ window.FIREBASE_CONFIG = {
     var items = agg.items, top = Object.keys(items).sort(function (a, b) { return items[b] - items[a]; }).slice(0, 8);
     h += '<h3 class="mt-h">Top items, last ' + n + ' days</h3>';
     h += top.length ? '<ul class="clist">' + top.map(function (k) { return '<li class="crow"><div><p class="c-name">' + esc(k) + '</p></div><div class="c-act"><b>' + items[k] + ' sold</b></div></li>'; }).join('') + '</ul>' : '<p class="snote">No sales in this period.</p>';
-    h += '<div class="t-btns"><button type="button" class="btn-line" data-action="dlsales">⬇ Download sales history (Excel / Google Sheets)</button></div>';
+    h += repButton() + '<div class="t-btns"><button type="button" class="btn-line" data-action="dlsales">⬇ Download sales history (Excel / Google Sheets)</button></div>';
     var fb = staffData.feedback.slice().sort(function (a, b) { return b.at - a.at; });
     h += '<h3 class="mt-h">Customer ratings</h3>';
     if (fb.length) {
@@ -3671,7 +3816,7 @@ window.FIREBASE_CONFIG = {
     if (unknown) bad.push('an item is not on the menu');
     if (bigQ) bad.push('odd item quantity');
     if (!unknown && Math.abs(sub - (+r.sub || 0)) > 1) bad.push('items add up to ' + fmt(sub) + ' on the menu, order says ' + fmt(r.sub) + ' (or the menu price changed)');
-    var calc = Math.round((((+r.sub || 0) - (+r.hh || 0) - (+r.reward || 0) - (+r.combo || 0) - (+r.promo || 0)) * (1 + GST)) * 100) / 100;
+    var calc = Math.round((((+r.sub || 0) - (+r.hh || 0) - (+r.reward || 0) - (+r.combo || 0) - (+r.promo || 0) - (+r.ext || 0)) * (1 + GST) + (+r.tip || 0)) * 100) / 100;
     if (Math.abs(calc - (+o.total || 0)) > 0.1) bad.push('total ' + fmt(o.total) + ' does not match its own discounts (should be ' + fmt(calc) + ')');
     if ((+r.combo || 0) > COMBO) bad.push('combo discount is too big');
     return bad;
@@ -3689,7 +3834,14 @@ window.FIREBASE_CONFIG = {
     if (+r.reward > 0) p.push('Free coffee (stamps) −' + fmt(r.reward));
     if (+r.combo > 0) p.push('Combo −' + fmt(r.combo));
     if (+r.promo > 0) p.push(esc(r.code || 'Promo') + ' −' + fmt(r.promo));
-    return p.length ? '<p class="t-note">Discounts: ' + p.join(' · ') + '</p>' : '';
+    if (+r.ext > 0) p.push((r.extKind === 'bday' ? 'Birthday' : 'Friend offer') + ' −' + fmt(r.ext));
+    var out = p.length ? '<p class="t-note">Discounts: ' + p.join(' · ') + '</p>' : '';
+    if (+r.tip > 0) out += '<p class="t-note"><b>Tip: ' + fmt(r.tip) + '</b> (included in the total)</p>';
+    if (o.ref) {
+      var done = staffData.status[o.uid] && staffData.status[o.uid].refd && staffData.status[o.uid].refd[o.id];
+      out += '<p class="t-note">Referred by code ' + esc(o.ref) + '. ' + (done ? 'Referrer already rewarded.' : '') + '</p>' + (!done && isOwner && staffStage(o) === 3 ? '<button type="button" class="btn-line" data-action="refreward" data-uid="' + esc(o.uid) + '" data-id="' + esc(o.id) + '" data-ref="' + esc(o.ref) + '">Reward referrer (+1 stamp)</button>' : '');
+    }
+    return out;
   }
   function orderCard(o) {
     var raw = staffStage(o), rej = raw === 4, st = Math.min(3, raw);
@@ -3764,6 +3916,7 @@ window.FIREBASE_CONFIG = {
       return;
     }
     if (staffTab === 'orders') {
+      if (isPaused()) h += '<p class="snote" role="status"><b>Online orders are paused.</b> Open them again in Settings.</p>';
       var t0 = new Date().setHours(0, 0, 0, 0), td = orders.filter(function (o) { return o.placedAt >= t0; }), tdOk = td.filter(function (o) { return staffStage(o) < 4; }), tdPaid = td.filter(function (o) { return staffStage(o) === 3; });
       h += '<div class="sumstrip" aria-label="Today"><div><b>' + tdOk.length + '</b><span>Orders today</span></div><div><b>' + fmt(tdPaid.reduce(function (a, o) { return a + (+o.total || 0); }, 0)) + '</b><span>Collected</span></div><div><b>' + (td.length - tdOk.length) + '</b><span>Rejected</span></div></div>';
       h += '<button type="button" class="dlcard" data-action="dlorders"><span class="dl-ic" aria-hidden="true"></span><span class="dl-t"><strong>Download all orders</strong><small>Excel / Google Sheets</small></span><span class="dl-go" aria-hidden="true"></span></button>' +

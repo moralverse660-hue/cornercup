@@ -803,3 +803,13 @@ html.booted #staff-body * { transition-property: transform, opacity, box-shadow,
 .paylock { display: grid; gap: 4px; margin: 12px 0; padding: 14px 16px; border-radius: 18px; border: 1px dashed var(--glass-hi); background: var(--accent-soft); }
 .paylock strong { font-family: var(--font-display); font-size: 17px; color: var(--accent); }
 .paylock span { color: var(--muted); font-size: 14px; }
+/* v18 tip, birthday, referral, pause, offline */
+.tiprow { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 10px; }
+.tiprow .chip { flex: 1; justify-content: center; min-width: 0; }
+#tipbox .u-title { margin-top: 12px; }
+.pausebar { margin: 12px 0; padding: 14px 16px; border-color: var(--warn); color: var(--ink); }
+.refcard { display: grid; gap: 6px; margin: 12px 0; padding: 14px 16px; border-radius: 18px; border: 1px solid var(--glass-line); background: var(--glass); }
+.refcard strong { font-family: var(--font-display); font-size: 18px; color: var(--accent); }
+.refcard span { color: var(--muted); font-size: 14px; }
+#offbar { position: fixed; left: 12px; right: 12px; top: calc(env(safe-area-inset-top, 0px) + 8px); z-index: 60; padding: 12px 16px; border-radius: 16px; text-align: center; font-weight: 600; background: rgba(120, 30, 20, 0.92); color: #fff; box-shadow: 0 10px 30px rgba(0,0,0,0.4); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+#offbar[hidden] { display: none; }
