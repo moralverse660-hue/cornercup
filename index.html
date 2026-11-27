@@ -6,7 +6,7 @@
 <title>Corner Cup</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=DM+Sans:wght@400;500;600&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap">
 <script>try{var t=localStorage.getItem('cc-theme');document.documentElement.setAttribute('data-theme',t==='light'||(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark')}catch(e){document.documentElement.setAttribute('data-theme','dark')}</script>
-<link rel="stylesheet" href="style.css?v=30">
+<link rel="stylesheet" href="style.css?v=32">
 </head>
 <body>
 
@@ -1212,6 +1212,9 @@ window.FIREBASE_CONFIG = {
     return b >= r ? { pct: b, kind: 'bday' } : { pct: r, kind: 'ref' };
   }
   function isPaused() { return !!setting('paused', ''); }
+  var PAUSE_WHY = ['Too busy right now', 'Closing soon', 'Kitchen machine problem', 'Short of staff', 'On a short break'];
+  function pauseWhy() { return String(setting('pausedWhy', '') || '').slice(0, 80); }
+  function pauseText() { return 'We cannot take online orders right now' + (pauseWhy() ? ': ' + pauseWhy() : '') + '. Please order at the counter.'; }
   Object.keys(cart).forEach(function (k) {
     var l = cart[k], it = l && byId[l.id];
     var ok = it && l.qty > 0 && keyOf(l.id, l) === k;
@@ -1451,10 +1454,21 @@ window.FIREBASE_CONFIG = {
     el.innerHTML = '<label class="fl" for="f-bday">Birthday (optional)</label><input id="f-bday" type="text" inputmode="numeric" maxlength="5" placeholder="DD/MM" autocomplete="off" value="' + (mm ? mm[2] + '/' + mm[1] : '') + '"' + (mm ? ' readonly' : '') + '><p class="hint">' + (mm ? 'Saved. Birthday week gets ' + esc(String(setting('bdPct', 0))) + '% off, once a year.' : 'Add it once to get ' + esc(String(setting('bdPct', 0))) + '% off in your birthday week. It cannot be changed later.') + '</p>';
   }
   function renderPause() {
-    var el = slot('pausebar', $('menu'));
-    if (!isPaused()) { el.innerHTML = ''; el.className = ''; return; }
+    var el = slot('pausebar', $('menu')), cp = slot('cartpause', $('lines'));
+    var fm = $('form');
+    if (fm) {
+      fm.classList.toggle('locked', isPaused());
+      Array.prototype.forEach.call(fm.querySelectorAll('input,textarea,select,button'), function (e) {
+        if (isPaused()) { if (!e.disabled) { e.setAttribute('data-pl', '1'); e.disabled = true; } }
+        else if (e.getAttribute('data-pl')) { e.disabled = false; e.removeAttribute('data-pl'); }
+      });
+      if (isPaused() && $('place')) $('place').textContent = 'Orders paused';
+    }
+    if (!isPaused()) { el.innerHTML = ''; el.className = ''; cp.innerHTML = ''; cp.className = ''; return; }
     el.className = 'banner pausebar'; el.setAttribute('role', 'status');
-    el.innerHTML = '<strong>Online orders are paused for now.</strong> Please order at the counter.';
+    el.innerHTML = '<strong>Online orders are paused.</strong> ' + esc(pauseWhy() ? pauseWhy() + '. ' : '') + 'Please order at the counter.';
+    cp.className = 'pausewarn'; cp.setAttribute('role', 'alert');
+    cp.innerHTML = '<strong>⛔ You cannot order this time.</strong><span>' + esc(pauseWhy() || 'The cafe has paused online orders.') + '. Please order at the counter.</span>';
   }
   function renderTotals() {
     var t = totals();
@@ -1476,7 +1490,7 @@ window.FIREBASE_CONFIG = {
     if (wi) $('hints').innerHTML += '<p class="hint">Wait right now: about ' + wi.min + ' min</p>';
     renderUpsell();
     $('place').textContent = 'Place order · ' + fmt(t.total);
-    $('place').disabled = t.n === 0 || isPaused();
+    $('place').disabled = t.n === 0;
     renderTip(t); renderBday(); renderPause();
     renderPromoMsg(t);
   }
@@ -2443,7 +2457,13 @@ window.FIREBASE_CONFIG = {
       } else if (a === 'tip') {
         tip = +btn.getAttribute('data-v') || 0; renderTotals(); updateBar();
       } else if (a === 'pausetog') {
-        menuWrite('settings', { paused: isPaused() ? '' : '1' }).then(function () { setMsg = menuNote || (isPaused() ? 'Online orders are paused.' : 'Online orders are open.'); renderStaff(true); });
+        var pw = '';
+        if (!isPaused()) {
+          pw = $('st-pwhy') ? $('st-pwhy').value : '';
+          if (pw === '_other') pw = ($('st-pwhy2') ? $('st-pwhy2').value : '').trim().slice(0, 60);
+          if (!pw) { setMsg = 'Choose a reason, or write your own, so customers know why.'; renderStaff(true); return; }
+        }
+        menuWrite('settings', { paused: isPaused() ? '' : '1', pausedWhy: isPaused() ? '' : pw }).then(function () { setMsg = menuNote || (isPaused() ? 'Online orders are paused.' : 'Online orders are open.'); renderStaff(true); });
       } else if (a === 'cleanold') {
         cleanOld();
       } else if (a === 'refreward') {
@@ -2630,7 +2650,7 @@ window.FIREBASE_CONFIG = {
     e.preventDefault();
     var t = totals();
     if (t.n === 0) return;
-    if (isPaused()) { placeError('Online orders are paused for now. Please order at the counter.'); return; }
+    if (isPaused()) { placeError(pauseText()); return; }
     var name = $('f-name').value.trim();
     var table = (type === 'dinein' && tableNo ? tableNo : $('f-table').value).trim();
     var phone = cleanPhone($('f-phone').value);
@@ -3401,7 +3421,7 @@ window.FIREBASE_CONFIG = {
         return '<label class="check"><input type="checkbox" data-hhsec="' + esc(c.id) + '"' + (String(st.hhSecs || '').split(',').indexOf(c.id) >= 0 ? ' checked' : '') + '><span>' + esc(c.cat) + '</span></label>';
       }).join('') + '</div></fieldset>' +
       '<p class="fine">In these hours the chosen items get this much off, and customers see a Happy hour banner. It starts and ends by itself every day.</p></div>' +
-      '<div class="panel"><h3>Orders on/off</h3><p class="fine">' + (isPaused() ? 'Online orders are PAUSED. Customers see a message and cannot order.' : 'Online orders are open.') + '</p><div class="t-btns"><button type="button" class="btn-line" data-action="pausetog">' + (isPaused() ? 'Open online orders' : 'Pause online orders') + '</button></div></div>' +
+      '<div class="panel"><h3>Orders on/off</h3><p class="fine">' + (isPaused() ? 'Online orders are PAUSED (' + esc(pauseWhy()) + '). Customers see this reason and cannot order.' : 'Online orders are open. Choose why, then pause. Customers see the reason in red.') + '</p>' + (isPaused() ? '' : '<div class="field"><label class="fl" for="st-pwhy">Reason</label><select id="st-pwhy">' + PAUSE_WHY.map(function (w) { return '<option value="' + esc(w) + '">' + esc(w) + '</option>'; }).join('') + '<option value="_other">Other (write below)</option></select></div><div class="field"><label class="fl" for="st-pwhy2">Your own reason (only for Other)</label><input id="st-pwhy2" type="text" maxlength="60" placeholder="Power cut, gas finished..."></div>') + '<div class="t-btns"><button type="button" class="btn-line" data-action="pausetog">' + (isPaused() ? 'Open online orders' : 'Pause online orders') + '</button></div></div>' +
       '<div class="panel"><h3>Offers for new customers</h3><div class="pair"><div class="field"><label class="fl" for="st-bd">Birthday week (% off)</label><input id="st-bd" type="number" inputmode="numeric" min="0" max="90" value="' + esc(st.bdPct || 0) + '"></div>' +
       '<div class="field"><label class="fl" for="st-ref">Friend offer (% off first order)</label><input id="st-ref" type="number" inputmode="numeric" min="0" max="90" value="' + esc(st.refPct || 0) + '"></div></div>' +
       '<p class="fine">0 means off. Birthday: once a year, in the 3 days around the birthday the customer saved. Friend offer: the friend gets the discount; on the order card you can give the referrer +1 stamp.</p></div>' +
@@ -3916,7 +3936,7 @@ window.FIREBASE_CONFIG = {
       return;
     }
     if (staffTab === 'orders') {
-      if (isPaused()) h += '<p class="snote" role="status"><b>Online orders are paused.</b> Open them again in Settings.</p>';
+      if (isPaused()) h += '<p class="snote" role="status"><b>Online orders are paused' + (pauseWhy() ? ': ' + esc(pauseWhy()) : '') + '.</b> Open them again in Settings.</p>';
       var t0 = new Date().setHours(0, 0, 0, 0), td = orders.filter(function (o) { return o.placedAt >= t0; }), tdOk = td.filter(function (o) { return staffStage(o) < 4; }), tdPaid = td.filter(function (o) { return staffStage(o) === 3; });
       h += '<div class="sumstrip" aria-label="Today"><div><b>' + tdOk.length + '</b><span>Orders today</span></div><div><b>' + fmt(tdPaid.reduce(function (a, o) { return a + (+o.total || 0); }, 0)) + '</b><span>Collected</span></div><div><b>' + (td.length - tdOk.length) + '</b><span>Rejected</span></div></div>';
       h += '<button type="button" class="dlcard" data-action="dlorders"><span class="dl-ic" aria-hidden="true"></span><span class="dl-t"><strong>Download all orders</strong><small>Excel / Google Sheets</small></span><span class="dl-go" aria-hidden="true"></span></button>' +
