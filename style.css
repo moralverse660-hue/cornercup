@@ -818,3 +818,22 @@ html.booted #staff-body * { transition-property: transform, opacity, box-shadow,
 :root[data-theme="light"] .pausewarn { background: rgba(214, 48, 36, 0.12); } :root[data-theme="light"] .pausewarn strong { color: #b3261e; }
 #form.locked { opacity: 0.45; filter: grayscale(0.5); user-select: none; }
 #form.locked * { cursor: not-allowed; }
+/* crown: highest order ever */
+.crowncard { position: relative; display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; align-items: center; margin: 14px 0 0; padding: 16px 18px; border-radius: 22px; overflow: hidden;
+  border: 1px solid rgba(255, 214, 120, 0.55); background: linear-gradient(135deg, rgba(255, 200, 90, 0.22), rgba(120, 70, 20, 0.35) 55%, rgba(255, 214, 120, 0.14));
+  -webkit-backdrop-filter: blur(30px) saturate(190%); backdrop-filter: blur(30px) saturate(190%);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.4), 0 0 28px rgba(255, 190, 80, 0.25), inset 0 1.5px 0 rgba(255, 236, 190, 0.5); }
+.crowncard::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 35%, rgba(255, 240, 200, 0.28) 50%, transparent 65%); transform: translateX(-120%); animation: shine 5s ease-in-out infinite; pointer-events: none; }
+.crown-ic { font-size: 40px; filter: drop-shadow(0 4px 10px rgba(255, 190, 80, 0.55)); }
+.crown-t { display: grid; gap: 1px; min-width: 0; }
+.crown-t small { font-family: var(--font-display); font-variant: small-caps; letter-spacing: 0.08em; font-weight: 700; color: #f0c27e; }
+.crown-t strong { font-family: var(--font-display); font-size: 32px; line-height: 1.05; color: #ffe2a8; }
+.crown-t span { color: var(--ink); font-size: 15px; overflow-wrap: anywhere; }
+.crowncard em { grid-column: 1 / -1; font-style: normal; font-size: 13px; color: var(--muted); }
+:root[data-theme="light"] .crowncard { background: linear-gradient(135deg, rgba(255, 220, 140, 0.7), rgba(255, 244, 220, 0.8)); border-color: rgba(190, 130, 40, 0.5); }
+:root[data-theme="light"] .crown-t strong { color: #8a4b1f; } :root[data-theme="light"] .crown-t small { color: #9a6a2a; }
+@keyframes shine { 0%, 55% { transform: translateX(-120%); } 85%, 100% { transform: translateX(120%); } }
+.crownnudge { margin: 12px 0; padding: 12px 14px; border-radius: 16px; border: 1px dashed rgba(255, 214, 120, 0.5); background: rgba(255, 200, 90, 0.1); font-size: 14px; line-height: 1.4; }
+.crownnudge.win { border-style: solid; background: rgba(255, 200, 90, 0.2); }
+@media (prefers-reduced-motion: reduce) { .crowncard::after { animation: none; } }
+.crowncard { margin-inline: 16px; }
